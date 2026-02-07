@@ -15,6 +15,13 @@ export type EdgeStyle = 'solid' | 'dashed' | 'dotted';
 export type EdgeArrow = 'none' | 'to' | 'from' | 'both';
 export type EdgeType = 'bezier' | 'straight' | 'step';
 
+export interface MindoSettings {
+  aiProvider: 'gemini' | 'openai';
+  aiBaseUrl: string;
+  aiApiKey: string;
+  aiModel: string;
+}
+
 export interface MindMapNode {
   id: string;
   type?: 'node' | 'group'; // Distinguish between standard nodes and groups
@@ -50,14 +57,55 @@ export interface ViewportTransform {
   scale: number;
 }
 
-// Broken down styles for more granular control (Title bar vs Border vs Content)
-export const NODE_STYLES: Record<NodeColor, { bg: string; border: string; text: string; selection: string }> = {
-  yellow: { bg: 'bg-yellow-100', border: 'border-yellow-200', text: 'text-yellow-900', selection: 'ring-yellow-400' },
-  green: { bg: 'bg-green-100', border: 'border-green-200', text: 'text-green-900', selection: 'ring-green-400' },
-  blue: { bg: 'bg-blue-100', border: 'border-blue-200', text: 'text-blue-900', selection: 'ring-blue-400' },
-  purple: { bg: 'bg-purple-100', border: 'border-purple-200', text: 'text-purple-900', selection: 'ring-purple-400' },
-  red: { bg: 'bg-red-100', border: 'border-red-200', text: 'text-red-900', selection: 'ring-red-400' },
-  gray: { bg: 'bg-gray-100', border: 'border-gray-200', text: 'text-gray-900', selection: 'ring-gray-400' },
+export const NODE_STYLES: Record<NodeColor, { bg: string; border: string; text: string; selection: string; headerBg: string; picker: string }> = {
+  yellow: { 
+      bg: 'bg-yellow-50 dark:bg-[#423e2a]', 
+      headerBg: 'bg-yellow-100 dark:bg-[#5c5428]',
+      border: 'border-yellow-200 dark:border-yellow-700', 
+      text: 'text-yellow-900 dark:text-yellow-100', 
+      selection: 'ring-yellow-400',
+      picker: '#facc15'
+  },
+  green: { 
+      bg: 'bg-green-50 dark:bg-[#1e3a29]', 
+      headerBg: 'bg-green-100 dark:bg-[#275236]',
+      border: 'border-green-200 dark:border-green-700', 
+      text: 'text-green-900 dark:text-green-100', 
+      selection: 'ring-green-400',
+      picker: '#4ade80'
+  },
+  blue: { 
+      bg: 'bg-blue-50 dark:bg-[#1e2a3a]', 
+      headerBg: 'bg-blue-100 dark:bg-[#274060]',
+      border: 'border-blue-200 dark:border-blue-700', 
+      text: 'text-blue-900 dark:text-blue-100', 
+      selection: 'ring-blue-400',
+      picker: '#60a5fa'
+  },
+  purple: { 
+      bg: 'bg-purple-50 dark:bg-[#34243e]', 
+      headerBg: 'bg-purple-100 dark:bg-[#4d3260]',
+      border: 'border-purple-200 dark:border-purple-700', 
+      text: 'text-purple-900 dark:text-purple-100', 
+      selection: 'ring-purple-400',
+      picker: '#c084fc'
+  },
+  red: { 
+      bg: 'bg-red-50 dark:bg-[#3e2424]', 
+      headerBg: 'bg-red-100 dark:bg-[#603232]',
+      border: 'border-red-200 dark:border-red-700', 
+      text: 'text-red-900 dark:text-red-100', 
+      selection: 'ring-red-400',
+      picker: '#f87171'
+  },
+  gray: { 
+      bg: 'bg-gray-50 dark:bg-[#2a2a2a]', 
+      headerBg: 'bg-gray-100 dark:bg-[#404040]',
+      border: 'border-gray-200 dark:border-gray-600', 
+      text: 'text-gray-900 dark:text-gray-100', 
+      selection: 'ring-gray-400',
+      picker: '#9ca3af'
+  },
 };
 
 export const COLOR_PALETTE: NodeColor[] = ['yellow', 'green', 'blue', 'purple', 'red', 'gray'];

@@ -1,19 +1,17 @@
 
 import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, TFile, TextFileView, Menu } from 'obsidian';
 import { MindoView, VIEW_TYPE_MINDO } from './view';
+import { MindoSettings } from './types';
 
-export interface MindoPluginSettings {
-    aiApiKey: string;
-    aiModel: string;
-}
-
-const DEFAULT_SETTINGS: MindoPluginSettings = {
+const DEFAULT_SETTINGS: MindoSettings = {
+    aiProvider: 'gemini',
+    aiBaseUrl: '',
     aiApiKey: '',
     aiModel: 'gemini-2.0-flash'
 }
 
 export default class MindoPlugin extends Plugin {
-	settings: MindoPluginSettings;
+	settings: MindoSettings;
 
 	async onload() {
 		await this.loadSettings();
@@ -44,10 +42,14 @@ export default class MindoPlugin extends Plugin {
 
     async createMindoFile() {
         const app = (this as any).app as App;
-        let file = app.vault.getAbstractFileByPath("Untitled.mindo");
+        
+        let baseName = "Untitled";
+        let path = `${baseName}.mindo`;
         let i = 1;
-        while (file) {
-            file = app.vault.getAbstractFileByPath(`Untitled ${i}.mindo`);
+        
+        // Find a unique filename
+        while (app.vault.getAbstractFileByPath(path)) {
+            path = `${baseName} ${i}.mindo`;
             i++;
         }
         
@@ -59,34 +61,11 @@ export default class MindoPlugin extends Plugin {
             version: 1
         }, null, 2);
 
-        const newFile = await app.vault.create(file ? file.path : `Untitled.mindo`, initialData);
+        const newFile = await app.vault.create(path, initialData);
         app.workspace.getLeaf(true).openFile(newFile as TFile);
     }
 
     injectTailwind() {
-        if (!document.querySelector('#mindo-tailwind-config')) {
-            const configScript = document.createElement('script');
-            configScript.id = 'mindo-tailwind-config';
-            configScript.textContent = `
-                tailwind.config = {
-                    darkMode: 'class',
-                    theme: {
-                        extend: {
-                            colors: {
-                                dark: {
-                                    bg: '#1e1e1e',
-                                    surface: '#2d2d2d',
-                                    border: '#404040',
-                                    text: '#e0e0e0'
-                                }
-                            }
-                        }
-                    }
-                }
-            `;
-            document.head.appendChild(configScript);
-        }
-
         if (!document.querySelector('#mindo-tailwind')) {
             const script = document.createElement('script');
             script.id = 'mindo-tailwind';
@@ -124,22 +103,69 @@ class MindoSettingTab extends PluginSettingTab {
 		containerEl.empty();
 		containerEl.createEl('h2', { text: 'Mindo Settings' });
 
+        // Preset Selector
         new Setting(containerEl)
-            .setName('Google Gemini API Key')
-            .setDesc('Enter your API key from Google AI Studio.')
+            .setName('AI Provider Preset')
+            .setDesc('Select a preset to auto-fill configurations. You can still edit them manually.')
+            .addDropdown(dropdown => dropdown
+                .addOption('gemini', 'Google Gemini')
+                .addOption('deepseek', 'DeepSeek')
+                .addOption('openai', 'OpenAI')
+                .addOption('custom', 'Custom (OpenAI Compatible)')
+                .setValue(this.plugin.settings.aiProvider === 'gemini' ? 'gemini' : (this.plugin.settings.aiBaseUrl.includes('deepseek') ? 'deepseek' : (this.plugin.settings.aiBaseUrl.includes('openai') ? 'openai' : 'custom')))
+                .onChange(async (value) => {
+                    if (value === 'gemini') {
+                        this.plugin.settings.aiProvider = 'gemini';
+                        this.plugin.settings.aiBaseUrl = '';
+                        this.plugin.settings.aiModel = 'gemini-2.0-flash';
+                    } else if (value === 'deepseek') {
+                        this.plugin.settings.aiProvider = 'openai';
+                        this.plugin.settings.aiBaseUrl = 'https://api.deepseek.com';
+                        this.plugin.settings.aiModel = 'deepseek-chat';
+                    } else if (value === 'openai') {
+                        this.plugin.settings.aiProvider = 'openai';
+                        this.plugin.settings.aiBaseUrl = 'https://api.openai.com/v1';
+                        this.plugin.settings.aiModel = 'gpt-4o';
+                    } else {
+                        this.plugin.settings.aiProvider = 'openai';
+                        // Keep existing or clear if switching to custom? Keep existing is safer.
+                    }
+                    await this.plugin.saveSettings();
+                    this.display(); // Refresh to show new values
+                }));
+
+        // Base URL (Hidden for Gemini)
+        if (this.plugin.settings.aiProvider === 'openai') {
+            new Setting(containerEl)
+                .setName('API Base URL')
+                .setDesc('The base URL for the API (e.g., https://api.deepseek.com).')
+                .addText(text => text
+                    .setPlaceholder('https://api.example.com/v1')
+                    .setValue(this.plugin.settings.aiBaseUrl)
+                    .onChange(async (value) => {
+                        this.plugin.settings.aiBaseUrl = value;
+                        await this.plugin.saveSettings();
+                    }));
+        }
+
+        // API Key
+        new Setting(containerEl)
+            .setName('API Key')
+            .setDesc('Enter your API key.')
             .addText(text => text
-                .setPlaceholder('Enter your API Key')
+                .setPlaceholder('sk-...')
                 .setValue(this.plugin.settings.aiApiKey)
                 .onChange(async (value) => {
                     this.plugin.settings.aiApiKey = value;
                     await this.plugin.saveSettings();
                 }));
 
+        // Model Name
         new Setting(containerEl)
             .setName('Model Name')
-            .setDesc('The model to use for expansion (e.g., gemini-2.0-flash, gemini-1.5-pro).')
+            .setDesc('The model ID to use (e.g., gemini-2.0-flash, deepseek-chat, gpt-4).')
             .addText(text => text
-                .setPlaceholder('gemini-2.0-flash')
+                .setPlaceholder('Model ID')
                 .setValue(this.plugin.settings.aiModel)
                 .onChange(async (value) => {
                     this.plugin.settings.aiModel = value;

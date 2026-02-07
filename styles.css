@@ -1,0 +1,12 @@
+
+.mindo-input-reset {
+    background-color: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+.mindo-input-reset:focus {
+    background-color: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+}

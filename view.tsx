@@ -70,7 +70,7 @@ export class MindoView extends TextFileView {
     getSettings() {
         // @ts-ignore - access internal plugin list to find our instance settings
         const plugin = (this.app as any).plugins.getPlugin('mindo') as MindoPlugin;
-        return plugin?.settings || { aiApiKey: '', aiModel: 'gemini-2.0-flash' };
+        return plugin?.settings || { aiProvider: 'gemini', aiBaseUrl: '', aiApiKey: '', aiModel: 'gemini-2.0-flash' };
     }
 
     renderApp() {

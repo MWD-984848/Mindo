@@ -145,8 +145,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
 
   const stopProp = (e: React.MouseEvent) => {
       e.stopPropagation();
-      // e.preventDefault(); // Removed preventDefault to allow text selection and focus
-  }
+  };
 
   const handleResizeMouseDown = (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -179,7 +178,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
         <div
           ref={nodeRef}
           className={`absolute flex flex-col group
-            bg-white/50 dark:bg-gray-800/30 border-dashed
+            bg-white/50 dark:bg-[var(--background-secondary)] border-dashed
             ${isDragging ? '' : 'transition-all duration-200'}
             ${isSelected ? `ring-2 ${style.selection} dark:ring-blue-500 z-10` : 'z-0 border-gray-300 dark:border-gray-600'}
             ${isDragging ? 'cursor-grabbing opacity-90' : 'cursor-grab'}
@@ -202,7 +201,8 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
                     ref={titleInputRef}
                     defaultValue={node.title}
                     placeholder="Group Name"
-                    className="bg-transparent font-bold outline-none w-24 text-inherit"
+                    className="bg-transparent border-none outline-none focus:ring-0 w-24 text-inherit p-0 m-0"
+                    style={{ backgroundColor: 'transparent' }}
                     onKeyDown={handleKeyDown}
                     onMouseDown={stopProp}
                 />
@@ -230,7 +230,8 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
                         <button
                         key={c}
                         onClick={(e) => { stopProp(e); onColorChange(node.id, c); }}
-                        className={`w-3 h-3 rounded-full border border-gray-200 dark:border-gray-600 ${NODE_STYLES[c].bg}`}
+                        className={`w-3 h-3 rounded-full border border-gray-200 dark:border-gray-600`}
+                        style={{ backgroundColor: NODE_STYLES[c].picker }}
                         />
                     ))}
                 </div>
@@ -244,11 +245,12 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
     <div
       ref={nodeRef}
       className={`absolute flex flex-col group
-        bg-white dark:bg-gray-800
         ${isDragging ? '' : 'transition-all duration-200'}
         ${isSelected ? `ring-2 ${style.selection} dark:ring-blue-500 shadow-xl z-20` : 'shadow-md hover:shadow-lg z-10'}
         ${isDragging ? 'cursor-grabbing opacity-90' : 'cursor-grab'}
         rounded-xl
+        ${style.bg}
+        border ${style.border}
       `}
       style={{
         transform: `translate(${node.x}px, ${node.y}px)`,
@@ -261,36 +263,38 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
       tabIndex={-1} 
       onBlur={handleBlur}
     >
-      <div className={`p-3 relative rounded-t-[9px] ${style.bg} ${style.text} dark:brightness-90 ${showContent ? `border-b ${style.border} dark:border-gray-700` : 'rounded-b-[9px]'}`}>
-        {isEditing ? (
+      <div className={`p-3 relative rounded-t-[9px] ${style.headerBg} ${style.text} ${showContent ? `border-b ${style.border}` : 'rounded-b-[9px]'}`}>
+        {isEditing && editTarget === 'title' ? (
           <input
             ref={titleInputRef}
             defaultValue={node.title}
             placeholder="Title"
-            className={`w-full bg-transparent font-bold outline-none text-center placeholder-${node.color}-300 dark:text-gray-900`}
+            className="w-full !bg-transparent border-none outline-none focus:ring-0 text-center font-bold p-0 m-0 text-inherit placeholder:text-inherit/50 mindo-input-reset"
+            style={{ backgroundColor: 'transparent' }}
             onKeyDown={handleKeyDown}
             onMouseDown={stopProp}
           />
         ) : (
-          <div className="font-bold text-center select-none whitespace-pre-wrap leading-tight dark:text-gray-900">
+          <div className="font-bold text-center select-none whitespace-pre-wrap leading-tight">
             {node.title || "Untitled"}
           </div>
         )}
       </div>
 
       {showContent && (
-        <div className="p-3 bg-white dark:bg-gray-800 rounded-b-[9px] flex-grow min-h-[60px] node-content">
-             {isEditing ? (
+        <div className={`p-3 rounded-b-[9px] flex-grow min-h-[60px] node-content ${style.text}`}>
+             {isEditing && editTarget === 'content' ? (
                 <textarea
                     ref={contentInputRef}
                     defaultValue={node.content}
                     placeholder="Description..."
-                    className="w-full h-full bg-transparent resize-none outline-none text-sm min-h-[60px] text-gray-700 dark:text-gray-300"
+                    className="w-full h-full !bg-transparent resize-none border-none outline-none focus:ring-0 text-sm min-h-[60px] text-inherit p-0 m-0 leading-relaxed appearance-none block mindo-input-reset"
+                    style={{ backgroundColor: 'transparent', boxShadow: 'none' }}
                     onKeyDown={handleKeyDown}
                     onMouseDown={stopProp}
                 />
             ) : (
-                <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap select-none leading-relaxed">
+                <div className="text-sm whitespace-pre-wrap select-none leading-relaxed">
                     {node.content}
                 </div>
             )}
@@ -319,7 +323,8 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
             <button
               key={c}
               onClick={(e) => { stopProp(e); onColorChange(node.id, c); }}
-              className={`w-4 h-4 rounded-full border border-gray-200 dark:border-gray-600 ${NODE_STYLES[c].bg} hover:scale-125 transition-transform`}
+              className={`w-4 h-4 rounded-full border border-gray-200 dark:border-gray-600 hover:scale-125 transition-transform`}
+              style={{ backgroundColor: NODE_STYLES[c].picker }}
             />
           ))}
         </div>

@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { MindMapNode, MindMapEdge, ViewportTransform, Position, NodeColor, HandlePosition } from './types';
-import { getEdgePath, generateId, screenToWorld, getHandlePosition, getNearestHandle, getCenter, getBezierMidpoint } from './utils/geometry';
+import { MindMapNode, MindMapEdge, ViewportTransform, Position, NodeColor, HandlePosition, MindoSettings } from './types';
+import { generateId, screenToWorld, getHandlePosition, getNearestHandle, getCenter, getBezierMidpoint } from './utils/geometry';
 import { NodeComponent } from './components/NodeComponent';
 import { EdgeComponent, EdgeMenu } from './components/EdgeComponent';
 import { Toolbar } from './components/Toolbar';
@@ -12,7 +12,7 @@ interface AppProps {
     initialData?: { nodes: MindMapNode[], edges: MindMapEdge[], transform?: ViewportTransform };
     onSave: (data: string) => void;
     fileName: string;
-    settings: { aiApiKey: string; aiModel: string };
+    settings: MindoSettings;
     onShowMessage?: (message: string) => void;
 }
 
@@ -586,16 +586,16 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
 
     if (!settings.aiApiKey) {
         if (onShowMessage) {
-            onShowMessage("Please set your Gemini API Key in the Mindo settings first.");
+            onShowMessage("Please set your AI API Key in the Mindo settings first.");
         } else {
-            alert("Please set your Gemini API Key in the Mindo settings first.");
+            alert("Please set your AI API Key in the Mindo settings first.");
         }
         return;
     }
 
     setIsAiLoading(true);
     try {
-      const suggestions = await expandIdea(node.title, settings.aiApiKey, settings.aiModel);
+      const suggestions = await expandIdea(node.title, settings);
       
       const newNodes: MindMapNode[] = [];
       const newEdges: MindMapEdge[] = [];
@@ -632,12 +632,13 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
 
       setNodes(prev => [...prev, ...newNodes]);
       setEdges(prev => [...prev, ...newEdges]);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      const msg = e.message || "AI generation failed. Check console for details.";
       if (onShowMessage) {
-          onShowMessage("AI generation failed. Check console for details.");
+          onShowMessage(msg);
       } else {
-          alert("AI generation failed. Check console for details.");
+          alert(msg);
       }
     } finally {
       setIsAiLoading(false);
@@ -687,19 +688,10 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   return (
     <div 
       ref={containerRef}
-      className={`w-full h-full overflow-hidden relative font-sans select-none ${darkMode ? 'bg-gray-900 text-gray-200' : 'bg-gray-50 text-gray-800'}`}
+      className="w-full h-full overflow-hidden relative font-sans select-none bg-[var(--background-primary)] text-[var(--text-normal)]"
       onWheel={handleWheel}
       style={{ isolation: 'isolate' }}
     >
-      <div 
-        className="absolute inset-0 pointer-events-none opacity-10"
-        style={{
-          backgroundImage: `radial-gradient(${darkMode ? '#fff' : '#000'} 1px, transparent 1px)`,
-          backgroundSize: `${20 * transform.scale}px ${20 * transform.scale}px`,
-          backgroundPosition: `${transform.x}px ${transform.y}px`
-        }}
-      />
-
       <div 
         className="w-full h-full absolute top-0 left-0 outline-none"
         onMouseDown={handleMouseDownCanvas}

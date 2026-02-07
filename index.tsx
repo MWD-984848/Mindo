@@ -14,7 +14,7 @@ root.render(
     <App 
         onSave={(data) => console.log('Saved', data)} 
         fileName="Untitled"
-        settings={{ aiApiKey: '', aiModel: 'gemini-2.0-flash' }}
+        settings={{ aiProvider: 'gemini', aiBaseUrl: '', aiApiKey: '', aiModel: 'gemini-2.0-flash' }}
         onShowMessage={(msg) => alert(msg)}
     />
   </React.StrictMode>
