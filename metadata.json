@@ -1,0 +1,5 @@
+{
+  "name": "Mindo",
+  "description": "A React-based infinite canvas mind mapping tool inspired by Mindo, featuring node creation, dragging, connection lines, and Gemini-powered idea expansion.",
+  "requestFramePermissions": []
+}
