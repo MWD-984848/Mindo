@@ -5,20 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mindo</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      /* Custom scrollbar hiding for cleaner canvas */
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
-      body {
-        overscroll-behavior: none;
-      }
-    </style>
+    <link rel="stylesheet" href="web.css">
   <script type="importmap">
 {
   "imports": {
@@ -27,16 +14,19 @@
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/",
     "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/client": "https://esm.sh/react-dom@^19.2.4/client",
     "esbuild": "https://esm.sh/esbuild@^0.27.3",
     "obsidian": "https://esm.sh/obsidian@^1.11.4",
     "builtin-modules": "https://esm.sh/builtin-modules@^5.0.0",
     "process": "https://esm.sh/process@^0.11.10",
-    "html-to-image": "https://esm.sh/html-to-image@1.11.11"
+    "html-to-image": "https://esm.sh/html-to-image@1.11.11",
+    "fs": "https://esm.sh/fs@^0.0.1-security"
   }
 }
 </script>
 </head>
-  <body class="bg-gray-50 overflow-hidden selection:bg-blue-200">
+  <body class="bg-gray-50 overflow-hidden">
     <div id="root"></div>
+    <script type="module" src="./web.js"></script>
   </body>
 </html>

@@ -2,6 +2,7 @@
 import esbuild from "esbuild";
 import builtins from "builtin-modules";
 import process from "process";
+import fs from "fs";
 
 const banner =
 `/*
@@ -12,7 +13,8 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = (process.argv[2] === "production");
 
-const context = await esbuild.context({
+// Context for Obsidian Plugin (main.ts -> main.js)
+const pluginContext = await esbuild.context({
 	banner: {
 		js: banner,
 	},
@@ -38,14 +40,32 @@ const context = await esbuild.context({
 	outfile: "main.js",
   define: {
     "process.env.NODE_ENV": prod ? '"production"' : '"development"',
-    // Fixed: Removed hardcoded empty string for API_KEY to allow environment variable usage
-    // "process.env.API_KEY": '""' 
+  }
+});
+
+// Context for Web Preview (index.tsx -> web.js)
+// We treat react/react-dom as external because we load them via ESM.sh in index.html
+const webContext = await esbuild.context({
+  entryPoints: ["index.tsx"],
+  bundle: true,
+  external: ["react", "react-dom", "react-dom/client", "@google/genai", "lucide-react", "html-to-image"],
+  format: "esm",
+  target: "es2020",
+  logLevel: "info",
+  sourcemap: true,
+  outfile: "web.js",
+  define: {
+    "process.env.NODE_ENV": prod ? '"production"' : '"development"',
   }
 });
 
 if (prod) {
-	await context.rebuild();
+	await Promise.all([pluginContext.rebuild(), webContext.rebuild()]);
+    // Rename main.css (generated from importing css in main.ts/App.tsx) to styles.css for Obsidian
+    if (fs.existsSync('main.css')) {
+        fs.renameSync('main.css', 'styles.css');
+    }
 	process.exit(0);
 } else {
-	await context.watch();
+	await Promise.all([pluginContext.watch(), webContext.watch()]);
 }

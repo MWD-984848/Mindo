@@ -1,4 +1,13 @@
 
+/* Reset & Base */
+html, body, #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
 .mindo-input-reset {
     background-color: transparent !important;
     border: none !important;
@@ -9,4 +18,662 @@
     background-color: transparent !important;
     outline: none !important;
     box-shadow: none !important;
+}
+
+/* Scrollbar hiding */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Global Selection */
+::selection {
+    background-color: #bfdbfe; /* blue-200 */
+}
+
+/* App Container */
+.mindo-canvas-container {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    user-select: none;
+    background-color: #f9fafb; /* bg-gray-50 */
+    color: #374151; /* text-gray-700 */
+    isolation: isolate;
+}
+.theme-dark .mindo-canvas-container {
+    background-color: #111827; /* bg-gray-900 */
+    color: #e5e7eb; /* text-gray-200 */
+}
+
+/* Selection overlay */
+.mindo-selection-box {
+    position: absolute;
+    background-color: rgba(59, 130, 246, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    pointer-events: none;
+    z-index: 50;
+}
+
+/* Connection Line Preview */
+.mindo-connection-preview {
+    stroke: #3b82f6;
+    stroke-width: 2;
+    stroke-dasharray: 5,5;
+    fill: none;
+    opacity: 0.6;
+    transition: stroke 0.2s;
+}
+.mindo-connection-preview.snapping {
+    stroke: #10b981;
+}
+
+/* --- Node Styles --- */
+.mindo-node {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    border-radius: 0.75rem; /* rounded-xl */
+    border-width: 1px;
+    border-style: solid;
+    transition: all 0.2s;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
+    z-index: 20; /* Standard nodes above SVG (10) */
+}
+.mindo-node.mindo-group {
+    background-color: rgba(255, 255, 255, 0.5);
+    border-style: dashed;
+    border-width: 2px;
+    z-index: 1; /* Groups below SVG (10) */
+    box-shadow: none;
+}
+.theme-dark .mindo-node.mindo-group {
+    background-color: rgba(31, 41, 55, 0.5); /* bg-gray-800/50 */
+    border-color: #4b5563; /* border-gray-600 */
+}
+
+.mindo-node:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
+}
+.mindo-node.selected {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); /* shadow-xl */
+    z-index: 30; /* Selected nodes highest */
+    /* Selection ring logic handled via border/box-shadow usually, but we use ring colors per theme below */
+}
+/* Ensure selected groups stay below standard nodes if possible, or just below selected standard nodes */
+.mindo-node.mindo-group.selected {
+    z-index: 2; /* Selected group slightly higher than unselected group, but still below lines ideally, or managed via selection box */
+}
+
+.mindo-node.dragging {
+    cursor: grabbing;
+    opacity: 0.9;
+    transition: none;
+}
+.mindo-node:not(.dragging) {
+    cursor: grab;
+}
+
+/* Node Header */
+.mindo-node-header {
+    padding: 0.75rem;
+    position: relative;
+    border-top-left-radius: 0.5rem; /* 9px approx to match container */
+    border-top-right-radius: 0.5rem;
+    font-weight: 700;
+    text-align: center;
+    white-space: pre-wrap;
+    line-height: 1.25;
+}
+.mindo-node-header.has-content {
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+}
+.mindo-node-header:not(.has-content) {
+    border-bottom-left-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+}
+
+/* Node Content */
+.mindo-node-content {
+    padding: 0.75rem;
+    border-bottom-left-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+    flex-grow: 1;
+    min-height: 60px;
+    font-size: 0.875rem;
+    white-space: pre-wrap;
+    line-height: 1.625;
+}
+
+/* Group Title Label */
+.mindo-group-label {
+    padding: 0.25rem 0.5rem;
+    margin: 0.5rem;
+    border-radius: 0.5rem;
+    width: fit-content;
+    align-self: flex-start;
+    opacity: 0.8;
+    background-color: #e5e7eb; /* bg-gray-200 */
+    color: #374151; /* text-gray-700 */
+    font-size: 0.875rem;
+    font-weight: 700;
+}
+.theme-dark .mindo-group-label {
+    background-color: #374151; /* bg-gray-700 */
+    color: #e5e7eb; /* text-gray-200 */
+}
+
+/* --- Color Themes --- */
+/* Yellow */
+.mindo-theme-yellow {
+    background-color: #fefce8; /* bg-yellow-50 */
+    border-color: #fef08a; /* border-yellow-200 */
+    color: #713f12; /* text-yellow-900 */
+}
+.mindo-theme-yellow .mindo-node-header {
+    background-color: #fef9c3; /* bg-yellow-100 */
+}
+.mindo-theme-yellow .mindo-node-header.has-content {
+    border-bottom-color: #fef08a;
+}
+.mindo-theme-yellow.selected {
+    box-shadow: 0 0 0 2px #facc15; /* ring-yellow-400 */
+}
+.theme-dark .mindo-theme-yellow {
+    background-color: #423e2a;
+    border-color: #a16207; /* border-yellow-700 */
+    color: #fef9c3; /* text-yellow-100 */
+}
+.theme-dark .mindo-theme-yellow .mindo-node-header {
+    background-color: #5c5428;
+}
+.theme-dark .mindo-theme-yellow .mindo-node-header.has-content {
+    border-bottom-color: #a16207;
+}
+
+/* Green */
+.mindo-theme-green {
+    background-color: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #14532d;
+}
+.mindo-theme-green .mindo-node-header {
+    background-color: #dcfce7;
+}
+.mindo-theme-green .mindo-node-header.has-content {
+    border-bottom-color: #bbf7d0;
+}
+.mindo-theme-green.selected {
+    box-shadow: 0 0 0 2px #4ade80;
+}
+.theme-dark .mindo-theme-green {
+    background-color: #1e3a29;
+    border-color: #15803d;
+    color: #dcfce7;
+}
+.theme-dark .mindo-theme-green .mindo-node-header {
+    background-color: #275236;
+}
+.theme-dark .mindo-theme-green .mindo-node-header.has-content {
+    border-bottom-color: #15803d;
+}
+
+/* Blue */
+.mindo-theme-blue {
+    background-color: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1e3a8a;
+}
+.mindo-theme-blue .mindo-node-header {
+    background-color: #dbeafe;
+}
+.mindo-theme-blue .mindo-node-header.has-content {
+    border-bottom-color: #bfdbfe;
+}
+.mindo-theme-blue.selected {
+    box-shadow: 0 0 0 2px #60a5fa;
+}
+.theme-dark .mindo-theme-blue {
+    background-color: #1e2a3a;
+    border-color: #1d4ed8;
+    color: #dbeafe;
+}
+.theme-dark .mindo-theme-blue .mindo-node-header {
+    background-color: #274060;
+}
+.theme-dark .mindo-theme-blue .mindo-node-header.has-content {
+    border-bottom-color: #1d4ed8;
+}
+
+/* Purple */
+.mindo-theme-purple {
+    background-color: #faf5ff;
+    border-color: #e9d5ff;
+    color: #581c87;
+}
+.mindo-theme-purple .mindo-node-header {
+    background-color: #f3e8ff;
+}
+.mindo-theme-purple .mindo-node-header.has-content {
+    border-bottom-color: #e9d5ff;
+}
+.mindo-theme-purple.selected {
+    box-shadow: 0 0 0 2px #c084fc;
+}
+.theme-dark .mindo-theme-purple {
+    background-color: #34243e;
+    border-color: #7e22ce;
+    color: #f3e8ff;
+}
+.theme-dark .mindo-theme-purple .mindo-node-header {
+    background-color: #4d3260;
+}
+.theme-dark .mindo-theme-purple .mindo-node-header.has-content {
+    border-bottom-color: #7e22ce;
+}
+
+/* Red */
+.mindo-theme-red {
+    background-color: #fef2f2;
+    border-color: #fecaca;
+    color: #7f1d1d;
+}
+.mindo-theme-red .mindo-node-header {
+    background-color: #fee2e2;
+}
+.mindo-theme-red .mindo-node-header.has-content {
+    border-bottom-color: #fecaca;
+}
+.mindo-theme-red.selected {
+    box-shadow: 0 0 0 2px #f87171;
+}
+.theme-dark .mindo-theme-red {
+    background-color: #3e2424;
+    border-color: #b91c1c;
+    color: #fee2e2;
+}
+.theme-dark .mindo-theme-red .mindo-node-header {
+    background-color: #603232;
+}
+.theme-dark .mindo-theme-red .mindo-node-header.has-content {
+    border-bottom-color: #b91c1c;
+}
+
+/* Gray */
+.mindo-theme-gray {
+    background-color: #f9fafb;
+    border-color: #e5e7eb;
+    color: #111827;
+}
+.mindo-theme-gray .mindo-node-header {
+    background-color: #f3f4f6;
+}
+.mindo-theme-gray .mindo-node-header.has-content {
+    border-bottom-color: #e5e7eb;
+}
+.mindo-theme-gray.selected {
+    box-shadow: 0 0 0 2px #9ca3af;
+}
+.theme-dark .mindo-theme-gray {
+    background-color: #2a2a2a;
+    border-color: #4b5563;
+    color: #f3f4f6;
+}
+.theme-dark .mindo-theme-gray .mindo-node-header {
+    background-color: #404040;
+}
+.theme-dark .mindo-theme-gray .mindo-node-header.has-content {
+    border-bottom-color: #4b5563;
+}
+/* Group specific overrides for dark mode selection */
+.theme-dark .mindo-group.selected {
+    box-shadow: 0 0 0 2px #3b82f6; /* blue-500 for groups */
+}
+
+/* --- Handles --- */
+.mindo-handle {
+    position: absolute;
+    width: 1rem;
+    height: 1rem;
+    background-color: white;
+    border: 2px solid #60a5fa; /* blue-400 */
+    border-radius: 9999px;
+    opacity: 0;
+    transition: all 0.2s;
+    cursor: crosshair;
+    z-index: 50;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+.theme-dark .mindo-handle {
+    background-color: #374151; /* gray-700 */
+}
+.mindo-node:hover .mindo-handle {
+    opacity: 1;
+}
+.mindo-handle:hover {
+    background-color: #dbeafe; /* blue-100 */
+    transform: scale(1.25);
+}
+.theme-dark .mindo-handle:hover {
+    background-color: #1e3a8a; /* blue-900 */
+}
+
+/* Handle Positions */
+.mindo-handle-top { top: -0.5rem; left: 50%; transform: translateX(-50%); }
+.mindo-handle-top:hover { transform: translateX(-50%) scale(1.25); }
+.mindo-handle-right { top: 50%; right: -0.5rem; transform: translateY(-50%); }
+.mindo-handle-right:hover { transform: translateY(-50%) scale(1.25); }
+.mindo-handle-bottom { bottom: -0.5rem; left: 50%; transform: translateX(-50%); }
+.mindo-handle-bottom:hover { transform: translateX(-50%) scale(1.25); }
+.mindo-handle-left { top: 50%; left: -0.5rem; transform: translateY(-50%); }
+.mindo-handle-left:hover { transform: translateY(-50%) scale(1.25); }
+
+/* --- Node Toolbar (Delete/Color) --- */
+.mindo-node-tools {
+    position: absolute;
+    top: -3rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background-color: white;
+    padding: 0.375rem;
+    border-radius: 9999px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #f3f4f6;
+    z-index: 30;
+    transform-origin: bottom;
+}
+.theme-dark .mindo-node-tools {
+    background-color: #1f2937; /* gray-800 */
+    border-color: #374151;
+}
+/* Group Tools Position */
+.mindo-group-tools {
+    position: absolute;
+    top: -2.5rem;
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background-color: white;
+    padding: 0.25rem;
+    border-radius: 9999px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    border: 1px solid #f3f4f6;
+}
+.theme-dark .mindo-group-tools {
+    background-color: #1f2937;
+    border-color: #374151;
+}
+
+.mindo-tool-btn {
+    padding: 0.375rem;
+    color: #ef4444; /* red-500 */
+    border-radius: 9999px;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+.mindo-tool-btn:hover {
+    background-color: #fef2f2; /* red-50 */
+}
+.theme-dark .mindo-tool-btn:hover {
+    background-color: rgba(127, 29, 29, 0.3);
+}
+
+.mindo-color-btn {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 9999px;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+    transition: transform 0.2s;
+    padding: 0;
+}
+.mindo-color-btn:hover {
+    transform: scale(1.25);
+}
+.theme-dark .mindo-color-btn {
+    border-color: #4b5563;
+}
+
+/* Resize Handle */
+.mindo-resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 1rem;
+    height: 1rem;
+    cursor: se-resize;
+    background-color: #d1d5db; /* gray-300 */
+    border-top-left-radius: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+.theme-dark .mindo-resize-handle {
+    background-color: #4b5563; /* gray-600 */
+}
+.mindo-node:hover .mindo-resize-handle {
+    opacity: 1;
+}
+
+/* --- Toolbar --- */
+.mindo-toolbar {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    z-index: 50;
+}
+.mindo-toolbar-group {
+    background-color: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    border-radius: 1rem;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.theme-dark .mindo-toolbar-group {
+    background-color: rgba(31, 41, 55, 0.9);
+    border-color: #374151;
+}
+.mindo-toolbar-btn {
+    padding: 0.5rem;
+    border-radius: 0.75rem;
+    color: #4b5563; /* gray-600 */
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+.theme-dark .mindo-toolbar-btn {
+    color: #d1d5db; /* gray-300 */
+}
+.mindo-toolbar-btn:hover {
+    background-color: #f3f4f6; /* gray-100 */
+}
+.theme-dark .mindo-toolbar-btn:hover {
+    background-color: #374151; /* gray-700 */
+}
+
+.mindo-toolbar-separator {
+    width: 1px;
+    height: 1.5rem;
+    background-color: #e5e7eb;
+    margin: 0 0.25rem;
+}
+.theme-dark .mindo-toolbar-separator {
+    background-color: #374151;
+}
+
+.mindo-ai-btn {
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: white;
+    background: linear-gradient(to right, #a855f7, #6366f1);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.mindo-ai-btn:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+.mindo-ai-btn:disabled {
+    background: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+.theme-dark .mindo-ai-btn:disabled {
+    background: #374151;
+}
+
+.mindo-group-btn {
+    background-color: #eff6ff; /* blue-50 */
+    color: #2563eb; /* blue-600 */
+}
+.theme-dark .mindo-group-btn {
+    background-color: rgba(30, 58, 138, 0.3);
+    color: #93c5fd;
+}
+.mindo-group-btn:hover {
+    background-color: #dbeafe;
+}
+.theme-dark .mindo-group-btn:hover {
+    background-color: rgba(30, 58, 138, 0.5);
+}
+
+/* --- Edge Menu --- */
+.mindo-edge-menu {
+    position: absolute;
+    z-index: 50;
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 16rem;
+    transform: translate(-50%, -100%) translateY(-15px);
+    animation: fadeInZoom 0.2s ease-out;
+}
+.theme-dark .mindo-edge-menu {
+    background-color: #1f2937; /* gray-800 */
+    border-color: #374151;
+}
+
+.mindo-edge-label-input {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: #f9fafb;
+    border-radius: 0.5rem;
+    padding: 0 0.5rem;
+    border: 1px solid #f3f4f6;
+}
+.mindo-edge-label-input input {
+    flex: 1;
+    font-size: 0.875rem;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 0.375rem 0;
+    color: #374151;
+}
+.theme-dark .mindo-edge-label-input input {
+    color: #e5e7eb;
+}
+
+.mindo-edge-type-group {
+    display: flex;
+    background-color: #f3f4f6;
+    padding: 0.25rem;
+    border-radius: 0.5rem;
+}
+.mindo-edge-type-btn {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 0.25rem 0;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    background: transparent;
+}
+.mindo-edge-type-btn.active {
+    background-color: white;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    color: #1f2937;
+}
+
+.mindo-edge-action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    color: #4b5563;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    gap: 0.25rem;
+}
+.mindo-edge-action-btn:hover {
+    background-color: #f3f4f6;
+}
+.mindo-edge-action-btn.delete {
+    color: #ef4444;
+}
+.mindo-edge-action-btn.delete:hover {
+    background-color: #fef2f2;
+}
+
+/* Animations */
+@keyframes fadeInZoom {
+    from { opacity: 0; transform: translate(-50%, -100%) translateY(-5px) scale(0.95); }
+    to { opacity: 1; transform: translate(-50%, -100%) translateY(-15px) scale(1); }
+}
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }

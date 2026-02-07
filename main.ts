@@ -15,8 +15,6 @@ export default class MindoPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-        
-        this.injectTailwind();
 
         (this as any).registerView(
             VIEW_TYPE_MINDO,
@@ -63,15 +61,6 @@ export default class MindoPlugin extends Plugin {
 
         const newFile = await app.vault.create(path, initialData);
         app.workspace.getLeaf(true).openFile(newFile as TFile);
-    }
-
-    injectTailwind() {
-        if (!document.querySelector('#mindo-tailwind')) {
-            const script = document.createElement('script');
-            script.id = 'mindo-tailwind';
-            script.src = 'https://cdn.tailwindcss.com';
-            document.head.appendChild(script);
-        }
     }
 
 	async loadSettings() {

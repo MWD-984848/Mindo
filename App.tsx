@@ -1,12 +1,13 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { MindMapNode, MindMapEdge, ViewportTransform, Position, NodeColor, HandlePosition, MindoSettings } from './types';
+import { MindMapNode, MindMapEdge, ViewportTransform, Position, HandlePosition, MindoSettings, NodeColor } from './types';
 import { generateId, screenToWorld, getHandlePosition, getNearestHandle, getCenter, getBezierMidpoint } from './utils/geometry';
 import { NodeComponent } from './components/NodeComponent';
 import { EdgeComponent, EdgeMenu } from './components/EdgeComponent';
 import { Toolbar } from './components/Toolbar';
 import { expandIdea } from './services/aiService';
 import * as htmlToImage from 'html-to-image';
+import './styles.css';
 
 interface AppProps {
     initialData?: { nodes: MindMapNode[], edges: MindMapEdge[], transform?: ViewportTransform };
@@ -50,6 +51,8 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   const itemStartRef = useRef<Position>({ x: 0, y: 0 });
   const hasCentered = useRef(false);
   const rafRef = useRef<number | null>(null); 
+  // Track if the update came from internal state change to prevent loops
+  const isInternalUpdate = useRef(false);
 
   // Dark Mode Detection
   useEffect(() => {
@@ -66,9 +69,24 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     return () => observer.disconnect();
   }, []);
 
+  // Sync with Prop Updates (Fixes: File load not updating UI)
+  useEffect(() => {
+    if (initialData) {
+        // Only update if the data is actually different to avoid unnecessary re-renders
+        // or let React handle the diffing via setNodes.
+        // We trust initialData from the parent View to be the "source of truth" when it changes.
+        setNodes(initialData.nodes || DEFAULT_INITIAL_NODES);
+        setEdges(initialData.edges || []);
+        if (initialData.transform) {
+            setTransform(initialData.transform);
+        }
+        // If it's a fresh file load, we might want to center it, but transform logic handles that below
+    }
+  }, [initialData]);
+
   // Initial Center if new file
   useEffect(() => {
-    if (!initialData && containerRef.current && !hasCentered.current) {
+    if ((!initialData || !initialData.nodes) && containerRef.current && !hasCentered.current) {
         const { clientWidth, clientHeight } = containerRef.current;
         setTransform({
             x: clientWidth / 2 - 100,
@@ -81,6 +99,9 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
 
   // Auto Save
   useEffect(() => {
+      // Avoid saving immediately on mount if data matches
+      if (nodes === initialData?.nodes && edges === initialData?.edges) return;
+
       const data = JSON.stringify({ nodes, edges, transform, version: 1 }, null, 2);
       onSave(data);
   }, [nodes, edges, transform, onSave]);
@@ -662,12 +683,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     }
   }, [darkMode, fileName]);
 
-  const sortedNodes = [...nodes].sort((a, b) => {
-      if (a.type === 'group' && b.type !== 'group') return -1;
-      if (a.type !== 'group' && b.type === 'group') return 1;
-      return 0;
-  });
-  
   const selectedEdgeObj = edges.find(e => e.id === selectedEdgeId);
   const edgeMenuPos: Position | null = selectedEdgeObj && selectedEdgeId ? (() => {
       const source = nodes.find(n => n.id === selectedEdgeObj.from);
@@ -685,18 +700,20 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
       };
   })() : null;
 
+  // Separate nodes for rendering order (Groups -> SVG -> Standard Nodes)
+  const groupNodes = nodes.filter(n => n.type === 'group');
+  const standardNodes = nodes.filter(n => n.type !== 'group');
+
   return (
     <div 
       ref={containerRef}
-      className="w-full h-full overflow-hidden relative font-sans select-none bg-[var(--background-primary)] text-[var(--text-normal)]"
+      className="mindo-canvas-container"
       onWheel={handleWheel}
-      style={{ isolation: 'isolate' }}
     >
       <div 
-        className="w-full h-full absolute top-0 left-0 outline-none"
+        style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, outline: 'none', cursor: isPanning ? 'grabbing' : 'default' }}
         onMouseDown={handleMouseDownCanvas}
         onDoubleClick={handleDoubleClickCanvas}
-        style={{ cursor: isPanning ? 'grabbing' : 'default' }}
       >
         <div 
           ref={canvasContentRef}
@@ -707,9 +724,28 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
             height: '100%',
             position: 'relative'
           }}
-          className="relative w-full h-full"
         >
-          <svg className="overflow-visible absolute top-0 left-0 pointer-events-none w-1 h-1 z-0">
+          {/* Layer 1: Groups (Background) */}
+          {groupNodes.map(node => (
+            <NodeComponent
+              key={node.id}
+              node={node}
+              scale={transform.scale}
+              isSelected={selectedNodeIds.has(node.id)}
+              isDragging={draggingNodeId === node.id || (selectedNodeIds.has(node.id) && !!draggingNodeId)}
+              onMouseDown={handleNodeMouseDown}
+              onMouseUp={handleMouseUp}
+              onConnectStart={handleConnectStart}
+              onConnectEnd={handleConnectEnd}
+              onUpdate={updateNodeData}
+              onResize={updateNodeResize}
+              onDelete={deleteNode}
+              onColorChange={updateNodeColor}
+            />
+          ))}
+
+          {/* Layer 2: Edges (Middle) */}
+          <svg style={{ overflow: 'visible', position: 'absolute', top: 0, left: 0, pointerEvents: 'none', width: '1px', height: '1px', zIndex: 10 }}>
             {edges.map(edge => {
               const source = nodes.find(n => n.id === edge.from);
               const target = nodes.find(n => n.id === edge.to);
@@ -742,17 +778,14 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                             : tempConnectionEnd;
                         return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
                     })()}
-                    stroke={snapPreview ? "#10b981" : "#3b82f6"} 
-                    strokeWidth="2"
-                    strokeDasharray="5,5"
-                    fill="none"
-                    className="opacity-60 transition-colors"
+                    className={`mindo-connection-preview ${snapPreview ? 'snapping' : ''}`}
                 />
                 </>
             )}
           </svg>
 
-          {sortedNodes.map(node => (
+          {/* Layer 3: Standard Nodes (Foreground) */}
+          {standardNodes.map(node => (
             <NodeComponent
               key={node.id}
               node={node}
@@ -770,10 +803,10 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
             />
           ))}
 
-          {/* Selection Box */}
+          {/* Selection Box (Overlay) */}
           {selectionBox && (
               <div 
-                  className="absolute bg-blue-500/20 border border-blue-500/50 pointer-events-none z-50"
+                  className="mindo-selection-box"
                   style={{
                       left: Math.min(selectionBox.start.x, selectionBox.end.x) / transform.scale - transform.x / transform.scale,
                       top: Math.min(selectionBox.start.y, selectionBox.end.y) / transform.scale - transform.y / transform.scale,
@@ -809,9 +842,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
             }
         }}
         onReset={() => { 
-            // setNodes(INITIAL_NODES); 
-            // setEdges([]); 
-            // Reset logic for file based approach? Just reset view transform?
             if (containerRef.current) {
                  setTransform({ x: containerRef.current.clientWidth/2 - 100, y: containerRef.current.clientHeight/2 - 50, scale: 1 });
             }

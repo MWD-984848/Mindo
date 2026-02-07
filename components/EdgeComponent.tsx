@@ -191,12 +191,12 @@ export const EdgeComponent: React.FC<EdgeComponentProps> = ({
             strokeWidth="20"
             fill="none"
             cursor="pointer"
-            className="pointer-events-auto" 
+            style={{ pointerEvents: 'auto' }}
             onMouseDown={(e) => onSelect(e, edge.id)}
             onDoubleClick={handleDoubleClickLine}
         />
 
-        {/* Visible Path - Removed transition-all to fix drag lag */}
+        {/* Visible Path */}
         <path
             d={pathD}
             stroke={strokeColor}
@@ -225,10 +225,25 @@ export const EdgeComponent: React.FC<EdgeComponentProps> = ({
                 height="28"
                 style={{ overflow: 'visible', pointerEvents: 'none' }}
             >
-                <div className="flex justify-center items-center w-full h-full">
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }}>
                     <span 
-                        className="bg-white/95 px-2 py-0.5 rounded text-xs font-semibold shadow-sm truncate max-w-[120px] border pointer-events-auto cursor-pointer"
-                        style={{ color: strokeColor, borderColor: strokeColor }}
+                        style={{ 
+                            backgroundColor: 'rgba(255,255,255,0.95)', 
+                            padding: '2px 8px', 
+                            borderRadius: '4px', 
+                            fontSize: '12px', 
+                            fontWeight: 600, 
+                            color: strokeColor, 
+                            borderColor: strokeColor,
+                            borderWidth: 1,
+                            borderStyle: 'solid',
+                            pointerEvents: 'auto',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            maxWidth: '120px'
+                        }}
                         onMouseDown={(e) => onSelect(e, edge.id)}
                     >
                         {edge.label}
@@ -252,7 +267,7 @@ export const EdgeComponent: React.FC<EdgeComponentProps> = ({
                         cursor="move"
                         onMouseDown={(e) => handleMouseDownBreakpoint(e, index)}
                         onDoubleClick={(e) => handleDoubleClickBreakpoint(e, index)}
-                        className="hover:scale-125 transition-transform shadow-sm pointer-events-auto"
+                        style={{ pointerEvents: 'auto' }}
                     />
                 ))}
             </>
@@ -291,19 +306,17 @@ export const EdgeMenu: React.FC<{
 
     return (
         <div 
-            className="absolute z-50 bg-white/95 backdrop-blur shadow-xl border border-gray-200 rounded-xl p-3 flex flex-col gap-3 w-64 animate-in fade-in zoom-in duration-200"
+            className="mindo-edge-menu"
             style={{ 
                 left: position.x, 
                 top: position.y,
-                transform: 'translate(-50%, -100%) translateY(-15px)'
             }}
             onMouseDown={e => e.stopPropagation()} 
         >
              {/* Label Input */}
-             <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-2 border border-gray-100">
-                <Type size={14} className="text-gray-400" />
+             <div className="mindo-edge-label-input">
+                <Type size={14} color="#9ca3af" />
                 <input 
-                    className="flex-1 text-sm outline-none text-gray-700 bg-transparent py-1.5 placeholder-gray-400"
                     placeholder="Label..."
                     value={labelInput}
                     onChange={(e) => {
@@ -314,24 +327,24 @@ export const EdgeMenu: React.FC<{
             </div>
 
             {/* Line Type Selector */}
-            <div className="flex bg-gray-100 p-1 rounded-lg">
+            <div className="mindo-edge-type-group">
                 <button 
                     onClick={() => setType('bezier')}
-                    className={`flex-1 flex justify-center py-1 rounded-md text-xs font-medium transition-all ${(!edge.type || edge.type === 'bezier') ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`mindo-edge-type-btn ${(!edge.type || edge.type === 'bezier') ? 'active' : ''}`}
                     title="Curve (Bezier)"
                 >
                     <Spline size={16} />
                 </button>
                 <button 
                     onClick={() => setType('straight')}
-                    className={`flex-1 flex justify-center py-1 rounded-md text-xs font-medium transition-all ${edge.type === 'straight' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`mindo-edge-type-btn ${edge.type === 'straight' ? 'active' : ''}`}
                     title="Straight / Polyline"
                 >
                     <ArrowUpRight size={16} />
                 </button>
                 <button 
                     onClick={() => setType('step')}
-                    className={`flex-1 flex justify-center py-1 rounded-md text-xs font-medium transition-all ${edge.type === 'step' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`mindo-edge-type-btn ${edge.type === 'step' ? 'active' : ''}`}
                     title="Step / Right Angle"
                 >
                     <GitCommitHorizontal size={16} />
@@ -339,49 +352,56 @@ export const EdgeMenu: React.FC<{
             </div>
 
             {/* Colors */}
-            <div className="flex justify-between items-center">
-                 <div className="flex gap-1.5 flex-wrap">
-                    {EDGE_COLORS.map(c => (
-                        <button
-                            key={c}
-                            className={`w-5 h-5 rounded-full border-2 transition-all ${edge.color === c ? 'border-gray-400 scale-110' : 'border-transparent hover:scale-110'}`}
-                            style={{ backgroundColor: c }}
-                            onClick={() => onUpdate(edge.id, { color: c })}
-                            title={c}
-                        />
-                    ))}
-                 </div>
+            <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+                {EDGE_COLORS.map(c => (
+                    <button
+                        key={c}
+                        style={{ 
+                            width: '1.25rem', 
+                            height: '1.25rem', 
+                            borderRadius: '9999px', 
+                            border: edge.color === c ? '2px solid #9ca3af' : '2px solid transparent',
+                            backgroundColor: c,
+                            cursor: 'pointer',
+                            transform: edge.color === c ? 'scale(1.1)' : 'scale(1)',
+                            transition: 'transform 0.2s',
+                            padding: 0
+                        }}
+                        onClick={() => onUpdate(edge.id, { color: c })}
+                        title={c}
+                    />
+                ))}
             </div>
 
             {/* Actions */}
-            <div className="grid grid-cols-3 gap-2">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}>
                 <button 
                     onClick={toggleArrow} 
-                    className="flex flex-col items-center justify-center p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors gap-1" 
+                    className="mindo-edge-action-btn" 
                     title="Change Arrow Direction"
                 >
                     <ArrowLeftRight size={18} />
-                    <span className="text-[10px] font-medium">Arrow</span>
+                    <span style={{ fontSize: '10px', fontWeight: 500 }}>Arrow</span>
                 </button>
                 <button 
                     onClick={toggleStyle} 
-                    className="flex flex-col items-center justify-center p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors gap-1" 
+                    className="mindo-edge-action-btn" 
                     title="Change Line Style"
                 >
                     <Activity size={18} />
-                    <span className="text-[10px] font-medium">Style</span>
+                    <span style={{ fontSize: '10px', fontWeight: 500 }}>Style</span>
                 </button>
                 <button 
                     onClick={() => onDelete(edge.id)} 
-                    className="flex flex-col items-center justify-center p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors gap-1" 
+                    className="mindo-edge-action-btn delete" 
                     title="Disconnect / Delete"
                 >
                     <Trash2 size={18} />
-                    <span className="text-[10px] font-medium">Delete</span>
+                    <span style={{ fontSize: '10px', fontWeight: 500 }}>Delete</span>
                 </button>
             </div>
             
-            <div className="text-[10px] text-gray-400 text-center px-2">
+            <div style={{ fontSize: '10px', color: '#9ca3af', textAlign: 'center', padding: '0 0.5rem' }}>
                 Double-click line to add point. Double-click point to remove.
             </div>
         </div>
