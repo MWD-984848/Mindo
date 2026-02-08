@@ -24,9 +24,10 @@ export interface MindoSettings {
 
 export interface MindMapNode {
   id: string;
-  type?: 'node' | 'group'; // Distinguish between standard nodes and groups
+  type?: 'node' | 'group' | 'image'; // Distinguish between standard nodes, groups, and images
   title: string;
   content?: string; // Optional body content
+  imageUrl?: string; // For image nodes
   x: number;
   y: number;
   width: number;

@@ -1,5 +1,5 @@
 
-import { TextFileView, WorkspaceLeaf, TFile, Notice } from 'obsidian';
+import { TextFileView, WorkspaceLeaf, TFile, Notice, MarkdownRenderer } from 'obsidian';
 import React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import App from './App';
@@ -69,8 +69,17 @@ export class MindoView extends TextFileView {
 
     getSettings() {
         // @ts-ignore - access internal plugin list to find our instance settings
-        const plugin = (this.app as any).plugins.getPlugin('mindo') as MindoPlugin;
+        const app = (this as any).app;
+        const plugin = (app as any).plugins.getPlugin('mindo') as MindoPlugin;
         return plugin?.settings || { aiProvider: 'gemini', aiBaseUrl: '', aiApiKey: '', aiModel: 'gemini-2.0-flash' };
+    }
+
+    renderMarkdown = (content: string, el: HTMLElement) => {
+        // @ts-ignore
+        const file = (this as any).file as TFile;
+        const sourcePath = file ? file.path : '';
+        const app = (this as any).app;
+        MarkdownRenderer.render(app, content, el, sourcePath, this);
     }
 
     renderApp() {
@@ -97,6 +106,7 @@ export class MindoView extends TextFileView {
                         fileName={file ? file.basename : 'Untitled'}
                         settings={settings}
                         onShowMessage={(msg) => new Notice(msg)}
+                        onRenderMarkdown={this.renderMarkdown}
                     />
                 </React.StrictMode>
             );

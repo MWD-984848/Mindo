@@ -16,6 +16,7 @@ interface NodeComponentProps {
   onDelete: (id: string) => void;
   onColorChange: (id: string, color: NodeColor) => void;
   scale: number;
+  onRenderMarkdown?: (content: string, el: HTMLElement) => void;
 }
 
 export const NodeComponent: React.FC<NodeComponentProps> = ({
@@ -31,23 +32,31 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
   onDelete,
   onColorChange,
   scale,
+  onRenderMarkdown
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [focusTarget, setFocusTarget] = useState<'title' | 'content'>('title');
   const titleInputRef = useRef<HTMLInputElement>(null);
   const contentInputRef = useRef<HTMLTextAreaElement>(null);
   const nodeRef = useRef<HTMLDivElement>(null);
+  const markdownRef = useRef<HTMLDivElement>(null);
 
   const themeClass = NODE_STYLES[node.color].className;
   const isGroup = node.type === 'group';
+  const isImage = node.type === 'image';
 
   useLayoutEffect(() => {
       if (nodeRef.current && !isGroup) {
           const obs = new ResizeObserver(entries => {
               for (const entry of entries) {
+                  // CRITICAL FIX: When switching tabs or if the view is hidden, offsetWidth becomes 0.
+                  // We must ensure we don't sync this 0 width back to the node state, 
+                  // otherwise the node collapses and text becomes vertical (1 char per line).
                   const el = nodeRef.current;
-                  if (el && (Math.abs(el.offsetWidth - node.width) > 2 || Math.abs(el.offsetHeight - node.height) > 2)) {
-                      onResize(node.id, el.offsetWidth, el.offsetHeight);
+                  if (el && el.offsetWidth > 10 && el.offsetHeight > 10) {
+                      if (Math.abs(el.offsetWidth - node.width) > 2 || Math.abs(el.offsetHeight - node.height) > 2) {
+                          onResize(node.id, el.offsetWidth, el.offsetHeight);
+                      }
                   }
               }
           });
@@ -55,6 +64,14 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
           return () => obs.disconnect();
       }
   }, [node.id, node.width, node.height, onResize, isGroup]);
+
+  // Render Markdown when not editing
+  useEffect(() => {
+      if (!isEditing && markdownRef.current && onRenderMarkdown && node.content && !isImage) {
+          markdownRef.current.innerHTML = '';
+          onRenderMarkdown(node.content, markdownRef.current);
+      }
+  }, [isEditing, node.content, onRenderMarkdown, isImage]);
 
   // Auto-resize textarea logic
   const adjustTextareaHeight = () => {
@@ -91,10 +108,16 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     const target = e.target as HTMLElement;
-    if (target.closest('.mindo-node-content')) {
-        setFocusTarget('content');
-    } else {
+    
+    if (isImage) {
+        // For images, we just allow editing title
         setFocusTarget('title');
+    } else {
+        if (target.closest('.mindo-node-content')) {
+            setFocusTarget('content');
+        } else {
+            setFocusTarget('title');
+        }
     }
     setIsEditing(true);
   };
@@ -157,7 +180,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
     onConnectEnd(e, node.id, h);
   };
 
-  const hasContent = node.content && node.content.trim().length > 0;
+  const hasContent = (node.content && node.content.trim().length > 0) || isImage;
   const showContent = isEditing || hasContent;
 
   // Group Rendering Logic
@@ -225,7 +248,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
       );
   }
 
-  // Standard Node Rendering
+  // Standard Node & Image Node Rendering
   return (
     <div
       ref={nodeRef}
@@ -236,9 +259,9 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
       style={{
         transform: `translate(${node.x}px, ${node.y}px)`,
         width: node.width,
-        // Height is auto to fit content, but respects node.height (manual resize) as minimum
-        height: 'auto',
-        minHeight: showContent ? node.height : 'auto',
+        // Height is auto to fit content unless it's an image node which respects fixed height more strictly
+        height: isImage ? node.height : 'auto',
+        minHeight: showContent ? (isImage ? node.height : node.height) : 'auto',
       }}
       onMouseDown={(e) => onMouseDown(e, node.id)}
       onMouseUp={(e) => onMouseUp(e, node.id)}
@@ -258,30 +281,41 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
             onMouseDown={stopProp}
           />
         ) : (
-          <div style={{ userSelect: 'none' }}>
+          <div style={{ userSelect: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {node.title || "Untitled"}
           </div>
         )}
       </div>
 
       {showContent && (
-        <div className="mindo-node-content">
-             {isEditing ? (
-                <textarea
-                    ref={contentInputRef}
-                    defaultValue={node.content}
-                    placeholder="Description..."
-                    className="mindo-input-reset"
-                    style={{ width: '100%', resize: 'none', color: 'inherit', padding: 0, margin: 0, overflow: 'hidden', height: 'auto' }}
-                    onInput={adjustTextareaHeight}
-                    onKeyDown={handleKeyDown}
-                    onMouseDown={stopProp}
-                />
-            ) : (
-                <div style={{ userSelect: 'none' }}>
-                    {node.content}
-                </div>
-            )}
+        <div className="mindo-node-content" style={{ height: isImage ? '100%' : 'auto' }}>
+             {isImage ? (
+                 <img 
+                    src={node.imageUrl} 
+                    alt={node.title} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '0 0 0.5rem 0.5rem', pointerEvents: 'none', display: 'block' }} 
+                 />
+             ) : (
+                 <>
+                    {isEditing ? (
+                        <textarea
+                            ref={contentInputRef}
+                            defaultValue={node.content}
+                            placeholder="Description..."
+                            className="mindo-input-reset"
+                            style={{ width: '100%', resize: 'none', color: 'inherit', padding: 0, margin: 0, overflow: 'hidden', height: 'auto' }}
+                            onInput={adjustTextareaHeight}
+                            onKeyDown={handleKeyDown}
+                            onMouseDown={stopProp}
+                        />
+                    ) : (
+                        <div ref={markdownRef} className="mindo-markdown-content">
+                            {/* Fallback if onRenderMarkdown is not provided */}
+                            {!onRenderMarkdown && node.content}
+                        </div>
+                    )}
+                </>
+             )}
         </div>
       )}
 

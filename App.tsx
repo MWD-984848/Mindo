@@ -15,13 +15,14 @@ interface AppProps {
     fileName: string;
     settings: MindoSettings;
     onShowMessage?: (message: string) => void;
+    onRenderMarkdown?: (content: string, el: HTMLElement) => void;
 }
 
 const DEFAULT_INITIAL_NODES: MindMapNode[] = [
   { id: 'root', title: 'Mindo', content: 'Central Topic', x: 0, y: 0, width: 200, height: 100, color: 'yellow' }
 ];
 
-const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onShowMessage }) => {
+const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onShowMessage, onRenderMarkdown }) => {
   // --- State ---
   const [nodes, setNodes] = useState<MindMapNode[]>(initialData?.nodes || DEFAULT_INITIAL_NODES);
   const [edges, setEdges] = useState<MindMapEdge[]>(initialData?.edges || []);
@@ -43,6 +44,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   const [isPanning, setIsPanning] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
 
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,6 +54,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   const hasCentered = useRef(false);
   const rafRef = useRef<number | null>(null); 
   const initialNodesRef = useRef<MindMapNode[]>([]);
+  const dragCounter = useRef(0);
   
   // Data Sync Refs
   const lastSavedData = useRef<string>("");
@@ -208,6 +211,111 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     setSelectedNodeIds(new Set([newNode.id]));
     setSelectedEdgeId(null);
   };
+
+  // --- Drag and Drop (Files/Images) ---
+  const handleDragEnter = (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter.current += 1;
+      if (e.dataTransfer.types.includes('Files')) {
+         setIsDraggingFile(true);
+      }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer.types.includes('Files')) {
+         e.dataTransfer.dropEffect = 'copy';
+      }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter.current -= 1;
+      if (dragCounter.current === 0) {
+          setIsDraggingFile(false);
+      }
+  };
+
+  const processImageFile = (file: File, x: number, y: number, index: number) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+          const result = ev.target?.result as string;
+          if (result) {
+              const newNode: MindMapNode = {
+                  id: generateId(),
+                  type: 'image',
+                  title: file.name,
+                  content: '',
+                  imageUrl: result,
+                  x: x + (index * 20),
+                  y: y + (index * 20),
+                  width: 200,
+                  height: 200, 
+                  color: 'gray'
+              };
+              setNodes(prev => [...prev, newNode]);
+          }
+      };
+      reader.readAsDataURL(file);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDraggingFile(false);
+      dragCounter.current = 0;
+      
+      const files = Array.from(e.dataTransfer.files) as File[];
+      const imageFiles = files.filter(f => f.type.startsWith('image/'));
+
+      if (imageFiles.length === 0) return;
+
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const dropPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      const worldPos = screenToWorld(dropPos, transform);
+
+      imageFiles.forEach((file, index) => {
+          processImageFile(file, worldPos.x, worldPos.y, index);
+      });
+  };
+
+  // Paste Handler
+  useEffect(() => {
+      const handlePaste = (e: ClipboardEvent) => {
+          // Prevent pasting in input/textarea
+          const active = document.activeElement;
+          if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.getAttribute('contenteditable') === 'true')) {
+              return;
+          }
+
+          if (e.clipboardData && e.clipboardData.files.length > 0) {
+              e.preventDefault();
+              const files = Array.from(e.clipboardData.files) as File[];
+              const imageFiles = files.filter(f => f.type.startsWith('image/'));
+              
+              if (imageFiles.length === 0) return;
+              
+              // Paste at center of current view
+              const rect = containerRef.current?.getBoundingClientRect();
+              if (!rect) return;
+              
+              const centerScreen = { x: rect.width / 2, y: rect.height / 2 };
+              const worldPos = screenToWorld(centerScreen, transform);
+
+              imageFiles.forEach((file, index) => {
+                  processImageFile(file, worldPos.x, worldPos.y, index);
+              });
+          }
+      };
+
+      window.addEventListener('paste', handlePaste);
+      return () => window.removeEventListener('paste', handlePaste);
+  }, [transform]); // Depend on transform to paste at correct location
 
   const handleCreateGroup = () => {
     if (selectedNodeIds.size === 0) return;
@@ -767,6 +875,10 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
       ref={containerRef}
       className="mindo-canvas-container"
       onWheel={handleWheel}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <div 
         style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, outline: 'none', cursor: isPanning ? 'grabbing' : 'default' }}
@@ -799,6 +911,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
               onResize={updateNodeResize}
               onDelete={deleteNode}
               onColorChange={updateNodeColor}
+              onRenderMarkdown={onRenderMarkdown}
             />
           ))}
 
@@ -858,6 +971,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
               onResize={updateNodeResize}
               onDelete={deleteNode}
               onColorChange={updateNodeColor}
+              onRenderMarkdown={onRenderMarkdown}
             />
           ))}
 
@@ -912,6 +1026,14 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         canGroup={selectedNodeIds.size > 1}
         canAlign={selectedNodeIds.size > 1}
       />
+      
+      {isDraggingFile && (
+          <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '2px dashed #3b82f6', zIndex: 100, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ padding: '1rem', backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                  Drop images to add
+              </div>
+          </div>
+      )}
     </div>
   );
 };
