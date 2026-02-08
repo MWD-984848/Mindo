@@ -81,10 +81,12 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
     z-index: 20; 
     /* Base Background for all nodes (Header will override for top part) */
-    background-color: var(--background-secondary);
+    /* Changed to background-primary to be lighter in light mode (usually white) */
+    background-color: var(--background-primary);
     min-width: 100px; /* Prevent total collapse */
 }
 .theme-dark .mindo-node {
+    /* Keep background secondary in dark mode for slight contrast against primary canvas, or keep primary if preferred */
     background-color: var(--background-secondary, #1f2937);
     color: var(--text-normal, #e5e7eb);
 }
@@ -531,22 +533,38 @@
     background-color: rgba(59, 130, 246, 0.2);
 }
 
-/* --- Edge Menu --- */
+/* --- Edge Menu (Properties Panel) --- */
 .mindo-edge-menu {
     position: absolute;
     z-index: 50;
+    /* Fixed positioning at top */
+    top: 1.5rem; 
+    left: 50%;
+    transform: translateX(-50%);
+    
     background-color: var(--background-primary);
     backdrop-filter: blur(4px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    border: 1px solid var(--background-modifier-border);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px var(--background-modifier-border);
     border-radius: 0.75rem;
     padding: 0.75rem;
     display: flex;
-    flex-direction: column;
+    align-items: center; /* Layout change: horizontal row mostly */
     gap: 0.75rem;
-    width: 16rem;
-    transform: translate(-50%, -100%) translateY(-15px);
-    animation: fadeInZoom 0.2s ease-out;
+    width: auto;
+    min-width: 20rem;
+    
+    animation: slideDown 0.2s ease-out;
+}
+
+/* Specific layout for the panel content */
+.mindo-edge-menu .mindo-edge-label-input {
+    width: 10rem;
+}
+
+.mindo-edge-menu-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
 }
 
 .mindo-edge-label-input {
@@ -575,10 +593,10 @@
     border-radius: 0.5rem;
 }
 .mindo-edge-type-btn {
-    flex: 1;
+    padding: 0.25rem 0.5rem; /* Wider hit area for icons */
     display: flex;
     justify-content: center;
-    padding: 0.25rem 0;
+    align-items: center;
     border-radius: 0.375rem;
     font-size: 0.75rem;
     font-weight: 500;
@@ -621,6 +639,12 @@
     from { opacity: 0; transform: translate(-50%, -100%) translateY(-5px) scale(0.95); }
     to { opacity: 1; transform: translate(-50%, -100%) translateY(-15px) scale(1); }
 }
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 .animate-spin {
     animation: spin 1s linear infinite;
 }

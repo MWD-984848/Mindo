@@ -4,10 +4,10 @@ import { MindoSettings } from '../types';
 
 export const expandIdea = async (topic: string, settings: MindoSettings): Promise<string[]> => {
   if (!settings.aiApiKey) {
-      throw new Error("API Key is missing. Please configure it in Mindo settings.");
+      throw new Error("缺少 API Key，请在 Mindo 设置中配置。");
   }
 
-  const prompt = `Generate 4 concise, distinct, and creative sub-topics or related concepts for the mind map node: "${topic}". Return ONLY a JSON array of strings, for example: ["Idea 1", "Idea 2", "Idea 3", "Idea 4"]. Keep them short (under 5 words). Do not wrap in markdown code blocks.`;
+  const prompt = `为思维导图节点 "${topic}" 生成 4 个简洁、独特且有创意的子主题。仅返回一个 JSON 字符串数组，例如：["想法 1", "想法 2", "想法 3", "想法 4"]。保持简短（5个字以内）。不要使用 markdown 代码块。`;
 
   try {
     if (settings.aiProvider === 'gemini') {
@@ -57,7 +57,7 @@ export const expandIdea = async (topic: string, settings: MindoSettings): Promis
             body: JSON.stringify({
                 model: settings.aiModel || 'deepseek-chat',
                 messages: [
-                    { role: "system", content: "You are a helpful assistant that helps brainstorm mind map ideas. You only speak JSON." },
+                    { role: "system", content: "你是一个帮助头脑风暴思维导图创意的助手。请只回复 JSON 格式。" },
                     { role: "user", content: prompt }
                 ],
                 stream: false,
@@ -67,7 +67,7 @@ export const expandIdea = async (topic: string, settings: MindoSettings): Promis
 
         if (!response.ok) {
             const err = await response.text();
-            throw new Error(`AI Provider Error (${response.status}): ${err}`);
+            throw new Error(`AI 服务提供商错误 (${response.status}): ${err}`);
         }
 
         const data = await response.json();
@@ -83,7 +83,7 @@ export const expandIdea = async (topic: string, settings: MindoSettings): Promis
         }
     }
 
-    return [`More about ${topic}`];
+    return [`关于 ${topic} 的更多内容`];
   } catch (error) {
     console.error("AI Generation failed:", error);
     throw error; // Re-throw to handle in UI

@@ -23,7 +23,7 @@ export const EdgeComponent: React.FC<EdgeComponentProps> = ({
   onSelect,
   onDelete,
   onUpdate,
-  transform,
+  transform
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const scale = transform.scale;
@@ -278,10 +278,9 @@ export const EdgeComponent: React.FC<EdgeComponentProps> = ({
 
 export const EdgeMenu: React.FC<{
     edge: MindMapEdge;
-    position: Position;
     onUpdate: (id: string, updates: Partial<MindMapEdge>) => void;
     onDelete: (id: string) => void;
-}> = ({ edge, position, onUpdate, onDelete }) => {
+}> = ({ edge, onUpdate, onDelete }) => {
     const [labelInput, setLabelInput] = useState(edge.label || '');
 
     useEffect(() => {
@@ -307,17 +306,13 @@ export const EdgeMenu: React.FC<{
     return (
         <div 
             className="mindo-edge-menu"
-            style={{ 
-                left: position.x, 
-                top: position.y,
-            }}
             onMouseDown={e => e.stopPropagation()} 
         >
              {/* Label Input */}
              <div className="mindo-edge-label-input">
                 <Type size={14} color="#9ca3af" />
                 <input 
-                    placeholder="Label..."
+                    placeholder="标签..."
                     value={labelInput}
                     onChange={(e) => {
                         setLabelInput(e.target.value);
@@ -331,21 +326,21 @@ export const EdgeMenu: React.FC<{
                 <button 
                     onClick={() => setType('bezier')}
                     className={`mindo-edge-type-btn ${(!edge.type || edge.type === 'bezier') ? 'active' : ''}`}
-                    title="Curve (Bezier)"
+                    title="曲线"
                 >
                     <Spline size={16} />
                 </button>
                 <button 
                     onClick={() => setType('straight')}
                     className={`mindo-edge-type-btn ${edge.type === 'straight' ? 'active' : ''}`}
-                    title="Straight / Polyline"
+                    title="直线"
                 >
                     <ArrowUpRight size={16} />
                 </button>
                 <button 
                     onClick={() => setType('step')}
                     className={`mindo-edge-type-btn ${edge.type === 'step' ? 'active' : ''}`}
-                    title="Step / Right Angle"
+                    title="直角/折线"
                 >
                     <GitCommitHorizontal size={16} />
                 </button>
@@ -374,35 +369,31 @@ export const EdgeMenu: React.FC<{
             </div>
 
             {/* Actions */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}>
+            <div className="mindo-edge-menu-row">
                 <button 
                     onClick={toggleArrow} 
                     className="mindo-edge-action-btn" 
-                    title="Change Arrow Direction"
+                    title="切换箭头方向"
                 >
                     <ArrowLeftRight size={18} />
-                    <span style={{ fontSize: '10px', fontWeight: 500 }}>Arrow</span>
+                    <span style={{ fontSize: '10px', fontWeight: 500 }}>箭头</span>
                 </button>
                 <button 
                     onClick={toggleStyle} 
                     className="mindo-edge-action-btn" 
-                    title="Change Line Style"
+                    title="切换线条样式"
                 >
                     <Activity size={18} />
-                    <span style={{ fontSize: '10px', fontWeight: 500 }}>Style</span>
+                    <span style={{ fontSize: '10px', fontWeight: 500 }}>样式</span>
                 </button>
                 <button 
                     onClick={() => onDelete(edge.id)} 
                     className="mindo-edge-action-btn delete" 
-                    title="Disconnect / Delete"
+                    title="删除连接"
                 >
                     <Trash2 size={18} />
-                    <span style={{ fontSize: '10px', fontWeight: 500 }}>Delete</span>
+                    <span style={{ fontSize: '10px', fontWeight: 500 }}>删除</span>
                 </button>
-            </div>
-            
-            <div style={{ fontSize: '10px', color: '#9ca3af', textAlign: 'center', padding: '0 0.5rem' }}>
-                Double-click line to add point. Double-click point to remove.
             </div>
         </div>
     );

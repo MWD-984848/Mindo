@@ -1,5 +1,5 @@
 
-import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, TFile, TextFileView, Menu } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, TFile, TextFileView, Menu, Modal } from 'obsidian';
 import { MindoView, VIEW_TYPE_MINDO } from './view';
 import { MindoSettings } from './types';
 
@@ -23,13 +23,13 @@ export default class MindoPlugin extends Plugin {
 
         (this as any).registerExtensions(['mindo'], VIEW_TYPE_MINDO);
 
-		(this as any).addRibbonIcon('brain-circuit', 'New Mindo Board', () => {
+		(this as any).addRibbonIcon('brain-circuit', '新建思维导图', () => {
 			this.createMindoFile();
 		});
 
         (this as any).addCommand({
             id: 'create-mindo-board',
-            name: 'Create New Mindo Board',
+            name: '新建思维导图',
             callback: () => {
                 this.createMindoFile();
             }
@@ -39,28 +39,31 @@ export default class MindoPlugin extends Plugin {
 	}
 
     async createMindoFile() {
-        const app = (this as any).app as App;
-        
-        let baseName = "Untitled";
-        let path = `${baseName}.mindo`;
-        let i = 1;
-        
-        // Find a unique filename
-        while (app.vault.getAbstractFileByPath(path)) {
-            path = `${baseName} ${i}.mindo`;
-            i++;
-        }
-        
-        const initialData = JSON.stringify({
-            nodes: [
-                { id: 'root', title: 'Central Topic', content: '', x: 0, y: 0, width: 200, height: 100, color: 'yellow' }
-            ],
-            edges: [],
-            version: 1
-        }, null, 2);
+        const modal = new NewBoardModal((this as any).app, async (name) => {
+            const app = (this as any).app as App;
+            let path = `${name}.mindo`;
+            
+            // Basic check to avoid overwriting, though user should probably pick unique name
+            if (app.vault.getAbstractFileByPath(path)) {
+                let i = 1;
+                while (app.vault.getAbstractFileByPath(`${name} ${i}.mindo`)) {
+                    i++;
+                }
+                path = `${name} ${i}.mindo`;
+            }
+            
+            const initialData = JSON.stringify({
+                nodes: [
+                    { id: 'root', title: '中心主题', content: '', x: 0, y: 0, width: 200, height: 100, color: 'yellow' }
+                ],
+                edges: [],
+                version: 1
+            }, null, 2);
 
-        const newFile = await app.vault.create(path, initialData);
-        app.workspace.getLeaf(true).openFile(newFile as TFile);
+            const newFile = await app.vault.create(path, initialData);
+            app.workspace.getLeaf(true).openFile(newFile as TFile);
+        });
+        (modal as any).open();
     }
 
 	async loadSettings() {
@@ -79,6 +82,70 @@ export default class MindoPlugin extends Plugin {
 	}
 }
 
+class NewBoardModal extends Modal {
+    result: string;
+    onSubmit: (result: string) => void;
+
+    constructor(app: App, onSubmit: (result: string) => void) {
+        super(app);
+        this.onSubmit = onSubmit;
+        this.result = "未命名";
+    }
+
+    onOpen() {
+        const { contentEl } = this as any;
+        contentEl.createEl("h2", { text: "新建思维导图" });
+
+        new Setting(contentEl)
+            .setName("名称")
+            .setDesc("输入思维导图名称")
+            .addText((text) =>
+                text
+                    .setValue(this.result)
+                    .onChange((value) => {
+                        this.result = value;
+                    })
+                    .inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
+                        if (e.key === "Enter") {
+                            this.submit();
+                        }
+                    })
+            );
+
+        new Setting(contentEl)
+            .addButton((btn) =>
+                btn
+                    .setButtonText("创建")
+                    .setCta()
+                    .onClick(() => {
+                        this.submit();
+                    })
+            );
+        
+        // Auto-focus input
+        setTimeout(() => {
+            const input = contentEl.querySelector('input');
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        }, 50);
+    }
+
+    submit() {
+        if (this.result.trim().length === 0) {
+            this.result = "未命名";
+        }
+        (this as any).close();
+        this.onSubmit(this.result);
+    }
+
+    onClose() {
+        const { contentEl } = this as any;
+        contentEl.empty();
+    }
+}
+
 class MindoSettingTab extends PluginSettingTab {
 	plugin: MindoPlugin;
 
@@ -90,17 +157,17 @@ class MindoSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = (this as any);
 		containerEl.empty();
-		containerEl.createEl('h2', { text: 'Mindo Settings' });
+		containerEl.createEl('h2', { text: 'Mindo 设置' });
 
         // Preset Selector
         new Setting(containerEl)
-            .setName('AI Provider Preset')
-            .setDesc('Select a preset to auto-fill configurations. You can still edit them manually.')
+            .setName('AI 服务商预设')
+            .setDesc('选择预设以自动填充配置，您仍可手动修改。')
             .addDropdown(dropdown => dropdown
-                .addOption('gemini', 'Google Gemini')
+                .addOption('gemini', '谷歌 Gemini')
                 .addOption('deepseek', 'DeepSeek')
                 .addOption('openai', 'OpenAI')
-                .addOption('custom', 'Custom (OpenAI Compatible)')
+                .addOption('custom', '自定义 (OpenAI 兼容)')
                 .setValue(this.plugin.settings.aiProvider === 'gemini' ? 'gemini' : (this.plugin.settings.aiBaseUrl.includes('deepseek') ? 'deepseek' : (this.plugin.settings.aiBaseUrl.includes('openai') ? 'openai' : 'custom')))
                 .onChange(async (value) => {
                     if (value === 'gemini') {
@@ -126,8 +193,8 @@ class MindoSettingTab extends PluginSettingTab {
         // Base URL (Hidden for Gemini)
         if (this.plugin.settings.aiProvider === 'openai') {
             new Setting(containerEl)
-                .setName('API Base URL')
-                .setDesc('The base URL for the API (e.g., https://api.deepseek.com).')
+                .setName('API 基础地址 (Base URL)')
+                .setDesc('API 的基础 URL (例如 https://api.deepseek.com)。')
                 .addText(text => text
                     .setPlaceholder('https://api.example.com/v1')
                     .setValue(this.plugin.settings.aiBaseUrl)
@@ -139,8 +206,8 @@ class MindoSettingTab extends PluginSettingTab {
 
         // API Key
         new Setting(containerEl)
-            .setName('API Key')
-            .setDesc('Enter your API key.')
+            .setName('API 密钥 (Key)')
+            .setDesc('输入您的 API Key。')
             .addText(text => text
                 .setPlaceholder('sk-...')
                 .setValue(this.plugin.settings.aiApiKey)
@@ -151,8 +218,8 @@ class MindoSettingTab extends PluginSettingTab {
 
         // Model Name
         new Setting(containerEl)
-            .setName('Model Name')
-            .setDesc('The model ID to use (e.g., gemini-2.0-flash, deepseek-chat, gpt-4).')
+            .setName('模型名称 (Model)')
+            .setDesc('使用的模型 ID (例如 gemini-2.0-flash, deepseek-chat, gpt-4)。')
             .addText(text => text
                 .setPlaceholder('Model ID')
                 .setValue(this.plugin.settings.aiModel)

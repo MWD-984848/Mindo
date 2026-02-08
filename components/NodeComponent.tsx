@@ -86,7 +86,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
         setTimeout(() => {
             if (focusTarget === 'title' && titleInputRef.current) {
                 titleInputRef.current.focus();
-                if (node.title === 'New Node' || node.title === 'New Group') {
+                if (node.title === 'New Node' || node.title === '新节点' || node.title === 'New Group' || node.title === '新分组') {
                     titleInputRef.current.select();
                 }
             } else if (focusTarget === 'content' && contentInputRef.current) {
@@ -208,7 +208,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
                 <input
                     ref={titleInputRef}
                     defaultValue={node.title}
-                    placeholder="Group Name"
+                    placeholder="分组名称"
                     className="mindo-input-reset"
                     style={{ width: '6rem', color: 'inherit', padding: 0, margin: 0 }}
                     onKeyDown={handleKeyDown}
@@ -216,7 +216,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
                 />
                 ) : (
                 <div style={{ userSelect: 'none' }}>
-                    {node.title || "Group"}
+                    {node.title || "分组"}
                 </div>
                 )}
             </div>
@@ -274,7 +274,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
           <input
             ref={titleInputRef}
             defaultValue={node.title}
-            placeholder="Title"
+            placeholder="标题"
             className="mindo-input-reset"
             style={{ width: '100%', textAlign: 'center', fontWeight: 'bold', padding: 0, margin: 0, color: 'inherit' }}
             onKeyDown={handleKeyDown}
@@ -282,7 +282,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
           />
         ) : (
           <div style={{ userSelect: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {node.title || "Untitled"}
+            {node.title || "未命名"}
           </div>
         )}
       </div>
@@ -301,7 +301,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
                         <textarea
                             ref={contentInputRef}
                             defaultValue={node.content}
-                            placeholder="Description..."
+                            placeholder="描述..."
                             className="mindo-input-reset"
                             style={{ width: '100%', resize: 'none', color: 'inherit', padding: 0, margin: 0, overflow: 'hidden', height: 'auto' }}
                             onInput={adjustTextareaHeight}
@@ -341,7 +341,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
           <button
             onClick={(e) => { stopProp(e); onDelete(node.id); }}
             className="mindo-tool-btn"
-            title="Delete"
+            title="删除"
           >
             <Trash2 size={14} />
           </button>

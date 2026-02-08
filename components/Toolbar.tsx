@@ -35,7 +35,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     <div className="mindo-toolbar">
       {/* File Operations */}
       <div className="mindo-toolbar-group">
-        <button onClick={onExportImage} className="mindo-toolbar-btn" title="Export as Image">
+        <button onClick={onExportImage} className="mindo-toolbar-btn" title="导出图片">
             <ImageIcon size={18} />
         </button>
       </div>
@@ -44,12 +44,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       <div className="mindo-toolbar-group">
         
         {canGroup ? (
-             <button onClick={onAddGroup} className="mindo-toolbar-btn mindo-group-btn" title="Group Selected">
+             <button onClick={onAddGroup} className="mindo-toolbar-btn mindo-group-btn" title="选中项编组">
                 <BoxSelect size={18} />
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, marginLeft: '4px' }}>Group</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, marginLeft: '4px' }}>编组</span>
             </button>
         ) : (
-            <button className="mindo-toolbar-btn" style={{ opacity: 0.5, cursor: 'not-allowed' }} title="Select multiple to group">
+            <button className="mindo-toolbar-btn" style={{ opacity: 0.5, cursor: 'not-allowed' }} title="选择多个节点进行编组">
                 <BoxSelect size={18} />
             </button>
         )}
@@ -57,10 +57,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {canAlign && onAlign && (
             <>
                 <div className="mindo-toolbar-separator" />
-                <button onClick={() => onAlign('horizontal')} className="mindo-toolbar-btn" title="Align Horizontally">
+                <button onClick={() => onAlign('horizontal')} className="mindo-toolbar-btn" title="水平对齐">
                     <AlignCenterVertical size={18} />
                 </button>
-                <button onClick={() => onAlign('vertical')} className="mindo-toolbar-btn" title="Align Vertically">
+                <button onClick={() => onAlign('vertical')} className="mindo-toolbar-btn" title="垂直对齐">
                     <AlignCenterHorizontal size={18} />
                 </button>
             </>
@@ -74,12 +74,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           disabled={isAiLoading}
         >
           <Sparkles size={16} className={isAiLoading ? 'animate-spin' : ''} />
-          {isAiLoading ? 'Thinking...' : 'Expand'}
+          {isAiLoading ? '思考中...' : 'AI 扩展'}
         </button>
 
         <div className="mindo-toolbar-separator" />
 
-        <button onClick={onZoomOut} className="mindo-toolbar-btn" title="Zoom Out">
+        <button onClick={onZoomOut} className="mindo-toolbar-btn" title="缩小">
           <Minus size={18} />
         </button>
         
@@ -87,16 +87,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           {Math.round(scale * 100)}%
         </span>
 
-        <button onClick={onZoomIn} className="mindo-toolbar-btn" title="Zoom In">
+        <button onClick={onZoomIn} className="mindo-toolbar-btn" title="放大">
           <Plus size={18} />
         </button>
       </div>
 
       <div className="mindo-toolbar-group">
-        <button onClick={onFitView} className="mindo-toolbar-btn" title="Fit to View">
+        <button onClick={onFitView} className="mindo-toolbar-btn" title="适应视图">
           <Maximize size={18} />
         </button>
-        <button onClick={onReset} className="mindo-toolbar-btn" title="Reset Canvas">
+        <button onClick={onReset} className="mindo-toolbar-btn" title="重置画布">
           <RefreshCcw size={18} />
         </button>
       </div>

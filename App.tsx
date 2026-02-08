@@ -19,7 +19,7 @@ interface AppProps {
 }
 
 const DEFAULT_INITIAL_NODES: MindMapNode[] = [
-  { id: 'root', title: 'Mindo', content: 'Central Topic', x: 0, y: 0, width: 200, height: 100, color: 'yellow' }
+  { id: 'root', title: 'Mindo', content: '中心主题', x: 0, y: 0, width: 200, height: 100, color: 'yellow' }
 ];
 
 const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onShowMessage, onRenderMarkdown }) => {
@@ -40,6 +40,9 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   const [connectionStart, setConnectionStart] = useState<{ nodeId: string, handle: HandlePosition } | null>(null); 
   const [tempConnectionEnd, setTempConnectionEnd] = useState<Position | null>(null);
   const [snapPreview, setSnapPreview] = useState<{ nodeId: string, handle: HandlePosition } | null>(null);
+
+  // Reconnection State
+  const [reconnectingEdge, setReconnectingEdge] = useState<{ edgeId: string, which: 'from' | 'to' } | null>(null);
 
   const [isPanning, setIsPanning] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -198,7 +201,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     const worldPos = screenToWorld(mousePos, transform);
     const newNode: MindMapNode = {
       id: generateId(),
-      title: 'New Node',
+      title: '新节点',
       content: '',
       x: worldPos.x - 100,
       y: worldPos.y - 40,
@@ -381,7 +384,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     const groupNode: MindMapNode = {
         id: newGroupId,
         type: 'group',
-        title: 'New Group',
+        title: '新分组',
         content: '',
         x: gMinX - PADDING,
         y: gMinY - PADDING - TITLE_OFFSET,
@@ -472,6 +475,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
       setSelectedNodeIds(new Set());
   };
 
+  // Triggered when user starts dragging a new connection from a node handle
   const handleConnectStart = (e: React.MouseEvent, nodeId: string, handle: HandlePosition) => {
     setConnectionStart({ nodeId, handle });
     const rect = containerRef.current?.getBoundingClientRect();
@@ -480,6 +484,27 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
        const worldPos = screenToWorld(mousePos, transform);
        setTempConnectionEnd(worldPos);
     }
+  };
+
+  // Triggered when user starts dragging an existing edge's start or end point
+  const handleEdgeReconnectStart = (e: React.MouseEvent, edgeId: string, which: 'from' | 'to') => {
+      e.stopPropagation();
+      e.preventDefault();
+      
+      const edge = edges.find(ed => ed.id === edgeId);
+      if(!edge) return;
+
+      // We set reconnecting state
+      setReconnectingEdge({ edgeId, which });
+      
+      // Determine the "fixed" point (if we move 'to', 'from' is fixed, and vice versa)
+      // This is needed for snap calculation, but for now we just track dragging
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        const mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const worldPos = screenToWorld(mousePos, transform);
+        setTempConnectionEnd(worldPos);
+     }
   };
 
   const handleConnectEnd = (e: React.MouseEvent, targetId: string, targetHandle: HandlePosition) => {
@@ -564,7 +589,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                   return n;
               }));
            } 
-           // Connection Line
+           // Creating New Connection Line
            else if (connectionStart && containerRef.current) {
               const rect = containerRef.current.getBoundingClientRect();
               const mousePos = { x: clientX - rect.left, y: clientY - rect.top };
@@ -578,10 +603,28 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                   setSnapPreview(null);
               }
            }
+           // Reconnecting Existing Edge
+           else if (reconnectingEdge && containerRef.current) {
+              const rect = containerRef.current.getBoundingClientRect();
+              const mousePos = { x: clientX - rect.left, y: clientY - rect.top };
+              const worldPos = screenToWorld(mousePos, transform);
+              setTempConnectionEnd(worldPos);
+
+              // Find current edge to know the "other" node
+              const edge = edges.find(ed => ed.id === reconnectingEdge.edgeId);
+              const excludeNodeId = edge ? (reconnectingEdge.which === 'from' ? edge.to : edge.from) : '';
+
+              const nearest = getNearestHandle(worldPos, nodes, excludeNodeId, 50);
+              if (nearest) {
+                  setSnapPreview(nearest);
+              } else {
+                  setSnapPreview(null);
+              }
+           }
            rafRef.current = null;
        });
 
-  }, [draggingNodeId, draggedChildrenIds, isPanning, connectionStart, transform, nodes, selectionBox, selectedNodeIds]);
+  }, [draggingNodeId, draggedChildrenIds, isPanning, connectionStart, transform, nodes, selectionBox, selectedNodeIds, reconnectingEdge, edges]);
 
   const handleMouseUp = useCallback(() => {
     if (rafRef.current) {
@@ -617,8 +660,23 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         setSelectionBox(null);
     }
 
+    // Creating new connection
     if (connectionStart && snapPreview) {
         createConnection(snapPreview.nodeId, snapPreview.handle);
+    }
+
+    // Finishing reconnection
+    if (reconnectingEdge && snapPreview) {
+        setEdges(prev => prev.map(e => {
+            if (e.id === reconnectingEdge.edgeId) {
+                if (reconnectingEdge.which === 'from') {
+                    return { ...e, from: snapPreview.nodeId, fromHandle: snapPreview.handle };
+                } else {
+                    return { ...e, to: snapPreview.nodeId, toHandle: snapPreview.handle };
+                }
+            }
+            return e;
+        }));
     }
 
     if (draggingNodeId) {
@@ -640,7 +698,8 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     setConnectionStart(null);
     setTempConnectionEnd(null);
     setSnapPreview(null);
-  }, [connectionStart, snapPreview, edges, draggingNodeId, selectionBox, transform, nodes, selectedNodeIds]); 
+    setReconnectingEdge(null);
+  }, [connectionStart, snapPreview, edges, draggingNodeId, selectionBox, transform, nodes, selectedNodeIds, reconnectingEdge]); 
 
   useEffect(() => {
     window.addEventListener('mousemove', handleGlobalMouseMove);
@@ -773,9 +832,9 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
 
     if (!settings.aiApiKey) {
         if (onShowMessage) {
-            onShowMessage("Please set your AI API Key in the Mindo settings first.");
+            onShowMessage("请先在 Mindo 设置中配置您的 AI API Key。");
         } else {
-            alert("Please set your AI API Key in the Mindo settings first.");
+            alert("请先在 Mindo 设置中配置您的 AI API Key。");
         }
         return;
     }
@@ -821,7 +880,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
       setEdges(prev => [...prev, ...newEdges]);
     } catch (e: any) {
       console.error(e);
-      const msg = e.message || "AI generation failed. Check console for details.";
+      const msg = e.message || "AI 生成失败，请检查控制台详情。";
       if (onShowMessage) {
           onShowMessage(msg);
       } else {
@@ -841,7 +900,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
             backgroundColor: darkMode ? '#111827' : '#ffffff',
         });
         const link = document.createElement('a');
-        link.download = `${fileName || 'mindmap'}.png`;
+        link.download = `${fileName || '思维导图'}.png`;
         link.href = dataUrl;
         link.click();
     } catch (err) {
@@ -850,21 +909,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   }, [darkMode, fileName]);
 
   const selectedEdgeObj = edges.find(e => e.id === selectedEdgeId);
-  const edgeMenuPos: Position | null = selectedEdgeObj && selectedEdgeId ? (() => {
-      const source = nodes.find(n => n.id === selectedEdgeObj.from);
-      const target = nodes.find(n => n.id === selectedEdgeObj.to);
-      if(!source || !target) return null;
-      
-      const s = getHandlePosition(source, selectedEdgeObj.fromHandle);
-      const e = getHandlePosition(target, selectedEdgeObj.toHandle);
-      const breakpoints = selectedEdgeObj.breakpoints || (selectedEdgeObj.controlPoint ? [selectedEdgeObj.controlPoint] : []);
-      const mid = getBezierMidpoint(s, e, selectedEdgeObj.fromHandle, selectedEdgeObj.toHandle, selectedEdgeObj.controlPoint, selectedEdgeObj.type, breakpoints);
-      
-      return {
-          x: mid.x * transform.scale + transform.x,
-          y: mid.y * transform.scale + transform.y
-      };
-  })() : null;
 
   // Separate nodes for rendering order (Groups -> SVG -> Standard Nodes)
   const groupNodes = nodes.filter(n => n.type === 'group');
@@ -936,23 +980,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                 />
               );
             })}
-            
-            {connectionStart && tempConnectionEnd && (
-                <>
-                <path
-                    d={(() => {
-                        const source = nodes.find(n => n.id === connectionStart.nodeId);
-                        if (!source) return '';
-                        const start = getHandlePosition(source, connectionStart.handle);
-                        const end = snapPreview 
-                            ? getHandlePosition(nodes.find(n => n.id === snapPreview.nodeId)!, snapPreview.handle)
-                            : tempConnectionEnd;
-                        return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
-                    })()}
-                    className={`mindo-connection-preview ${snapPreview ? 'snapping' : ''}`}
-                />
-                </>
-            )}
           </svg>
 
           {/* Layer 3: Standard Nodes (Foreground) */}
@@ -975,6 +1002,84 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
             />
           ))}
 
+          {/* Layer 4: Controls Overlay (Top) - zIndex 60 to be above Nodes (zIndex 30) */}
+          <svg style={{ overflow: 'visible', position: 'absolute', top: 0, left: 0, pointerEvents: 'none', width: '1px', height: '1px', zIndex: 60 }}>
+            {/* Reconnect Handles for Selected Edge */}
+            {selectedEdgeObj && selectedEdgeId && (() => {
+                const source = nodes.find(n => n.id === selectedEdgeObj.from);
+                const target = nodes.find(n => n.id === selectedEdgeObj.to);
+                if (!source || !target) return null;
+
+                const start = getHandlePosition(source, selectedEdgeObj.fromHandle);
+                const end = getHandlePosition(target, selectedEdgeObj.toHandle);
+                const color = selectedEdgeObj.color || '#94a3b8';
+
+                return (
+                    <>
+                         <circle
+                            cx={start.x}
+                            cy={start.y}
+                            r={6}
+                            fill="white"
+                            stroke={color}
+                            strokeWidth={2}
+                            cursor="crosshair"
+                            pointerEvents="auto"
+                            onMouseDown={(e) => handleEdgeReconnectStart(e, selectedEdgeObj.id, 'from')}
+                        />
+                         <circle
+                            cx={end.x}
+                            cy={end.y}
+                            r={6}
+                            fill="white"
+                            stroke={color}
+                            strokeWidth={2}
+                            cursor="crosshair"
+                            pointerEvents="auto"
+                            onMouseDown={(e) => handleEdgeReconnectStart(e, selectedEdgeObj.id, 'to')}
+                        />
+                    </>
+                );
+            })()}
+            
+            {/* Connection Preview (New or Reconnect) */}
+            {(connectionStart || reconnectingEdge) && tempConnectionEnd && (
+                <>
+                <path
+                    d={(() => {
+                        let startPoint: Position;
+                        if (reconnectingEdge) {
+                            const edge = edges.find(e => e.id === reconnectingEdge.edgeId);
+                            if (!edge) return '';
+                            if (reconnectingEdge.which === 'to') {
+                                const source = nodes.find(n => n.id === edge.from);
+                                if (!source) return '';
+                                startPoint = getHandlePosition(source, edge.fromHandle);
+                            } else {
+                                const target = nodes.find(n => n.id === edge.to);
+                                if (!target) return '';
+                                startPoint = getHandlePosition(target, edge.toHandle);
+                            }
+                        } else if (connectionStart) {
+                             const source = nodes.find(n => n.id === connectionStart.nodeId);
+                             if (!source) return '';
+                             startPoint = getHandlePosition(source, connectionStart.handle);
+                        } else {
+                            return '';
+                        }
+
+                        const endPoint = snapPreview 
+                            ? getHandlePosition(nodes.find(n => n.id === snapPreview.nodeId)!, snapPreview.handle)
+                            : tempConnectionEnd;
+                            
+                        return `M ${startPoint.x} ${startPoint.y} L ${endPoint.x} ${endPoint.y}`;
+                    })()}
+                    className={`mindo-connection-preview ${snapPreview ? 'snapping' : ''}`}
+                />
+                </>
+            )}
+          </svg>
+
           {/* Selection Box (Overlay) */}
           {selectionBox && (
               <div 
@@ -990,11 +1095,10 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         </div>
       </div>
       
-      {/* Edge Context Menu */}
-      {selectedEdgeId && selectedEdgeObj && edgeMenuPos && (
+      {/* Edge Context Menu - Now fixed at bottom */}
+      {selectedEdgeId && selectedEdgeObj && (
           <EdgeMenu 
               edge={selectedEdgeObj} 
-              position={edgeMenuPos} 
               onUpdate={updateEdge}
               onDelete={() => setEdges(prev => prev.filter(e => e.id !== selectedEdgeObj.id))}
           />
@@ -1030,7 +1134,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
       {isDraggingFile && (
           <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '2px dashed #3b82f6', zIndex: 100, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ padding: '1rem', backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                  Drop images to add
+                  拖放图片以添加
               </div>
           </div>
       )}
