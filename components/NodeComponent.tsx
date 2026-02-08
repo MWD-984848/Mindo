@@ -18,33 +18,6 @@ interface NodeComponentProps {
   scale: number;
 }
 
-const Handles: React.FC<{ 
-    onStart: (e: React.MouseEvent, h: HandlePosition) => void;
-    onEnd: (e: React.MouseEvent, h: HandlePosition) => void;
-}> = ({ onStart, onEnd }) => {
-    
-    const handleMouseDown = (e: React.MouseEvent, h: HandlePosition) => {
-        e.stopPropagation();
-        e.preventDefault();
-        onStart(e, h);
-    };
-
-    const handleMouseUp = (e: React.MouseEvent, h: HandlePosition) => {
-        e.stopPropagation();
-        e.preventDefault();
-        onEnd(e, h);
-    };
-
-    return (
-        <>
-            <div className={`mindo-handle mindo-handle-top`} onMouseDown={(e) => handleMouseDown(e, 'top')} onMouseUp={(e) => handleMouseUp(e, 'top')} />
-            <div className={`mindo-handle mindo-handle-right`} onMouseDown={(e) => handleMouseDown(e, 'right')} onMouseUp={(e) => handleMouseUp(e, 'right')} />
-            <div className={`mindo-handle mindo-handle-bottom`} onMouseDown={(e) => handleMouseDown(e, 'bottom')} onMouseUp={(e) => handleMouseUp(e, 'bottom')} />
-            <div className={`mindo-handle mindo-handle-left`} onMouseDown={(e) => handleMouseDown(e, 'left')} onMouseUp={(e) => handleMouseUp(e, 'left')} />
-        </>
-    );
-};
-
 export const NodeComponent: React.FC<NodeComponentProps> = ({
   node,
   isSelected,
@@ -60,7 +33,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
   scale,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editTarget, setEditTarget] = useState<'title' | 'content'>('title');
+  const [focusTarget, setFocusTarget] = useState<'title' | 'content'>('title');
   const titleInputRef = useRef<HTMLInputElement>(null);
   const contentInputRef = useRef<HTMLTextAreaElement>(null);
   const nodeRef = useRef<HTMLDivElement>(null);
@@ -83,22 +56,31 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
       }
   }, [node.id, node.width, node.height, onResize, isGroup]);
 
+  // Auto-resize textarea logic
+  const adjustTextareaHeight = () => {
+    if (contentInputRef.current) {
+        contentInputRef.current.style.height = 'auto';
+        contentInputRef.current.style.height = contentInputRef.current.scrollHeight + 'px';
+    }
+  };
+
   useEffect(() => {
     if (isEditing) {
         setTimeout(() => {
-            if (editTarget === 'title' && titleInputRef.current) {
+            if (focusTarget === 'title' && titleInputRef.current) {
                 titleInputRef.current.focus();
                 if (node.title === 'New Node' || node.title === 'New Group') {
                     titleInputRef.current.select();
                 }
-            } else if (editTarget === 'content' && contentInputRef.current) {
+            } else if (focusTarget === 'content' && contentInputRef.current) {
                 contentInputRef.current.focus();
+                adjustTextareaHeight();
                 const val = contentInputRef.current.value;
                 contentInputRef.current.setSelectionRange(val.length, val.length);
             }
         }, 10);
     }
-  }, [isEditing, editTarget]);
+  }, [isEditing, focusTarget]);
 
   const saveChanges = () => {
     const newTitle = titleInputRef.current?.value ?? node.title;
@@ -110,9 +92,9 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
     e.stopPropagation();
     const target = e.target as HTMLElement;
     if (target.closest('.mindo-node-content')) {
-        setEditTarget('content');
+        setFocusTarget('content');
     } else {
-        setEditTarget('title');
+        setFocusTarget('title');
     }
     setIsEditing(true);
   };
@@ -163,14 +145,27 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
       window.addEventListener('mouseup', handleMouseUp);
   };
 
-  const showContent = isEditing || (node.content && node.content.trim().length > 0);
+  const handleHandleMouseDown = (e: React.MouseEvent, h: HandlePosition) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onConnectStart(e, node.id, h);
+  };
+
+  const handleHandleMouseUp = (e: React.MouseEvent, h: HandlePosition) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onConnectEnd(e, node.id, h);
+  };
+
+  const hasContent = node.content && node.content.trim().length > 0;
+  const showContent = isEditing || hasContent;
 
   // Group Rendering Logic
   if (isGroup) {
       return (
         <div
           ref={nodeRef}
-          className={`mindo-node mindo-group
+          className={`mindo-node mindo-group ${themeClass}
             ${isDragging ? 'dragging' : ''}
             ${isSelected ? 'selected' : ''}
           `}
@@ -241,7 +236,9 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
       style={{
         transform: `translate(${node.x}px, ${node.y}px)`,
         width: node.width,
-        minHeight: 50,
+        // Height is auto to fit content, but respects node.height (manual resize) as minimum
+        height: 'auto',
+        minHeight: showContent ? node.height : 'auto',
       }}
       onMouseDown={(e) => onMouseDown(e, node.id)}
       onMouseUp={(e) => onMouseUp(e, node.id)}
@@ -250,7 +247,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
       onBlur={handleBlur}
     >
       <div className={`mindo-node-header ${showContent ? 'has-content' : ''}`}>
-        {isEditing && editTarget === 'title' ? (
+        {isEditing ? (
           <input
             ref={titleInputRef}
             defaultValue={node.title}
@@ -269,13 +266,14 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
 
       {showContent && (
         <div className="mindo-node-content">
-             {isEditing && editTarget === 'content' ? (
+             {isEditing ? (
                 <textarea
                     ref={contentInputRef}
                     defaultValue={node.content}
                     placeholder="Description..."
                     className="mindo-input-reset"
-                    style={{ width: '100%', height: '100%', resize: 'none', color: 'inherit', padding: 0, margin: 0 }}
+                    style={{ width: '100%', resize: 'none', color: 'inherit', padding: 0, margin: 0, overflow: 'hidden', height: 'auto' }}
+                    onInput={adjustTextareaHeight}
                     onKeyDown={handleKeyDown}
                     onMouseDown={stopProp}
                 />
@@ -287,10 +285,19 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
         </div>
       )}
 
-      <Handles 
-        onStart={(e, h) => onConnectStart(e, node.id, h)} 
-        onEnd={(e, h) => onConnectEnd(e, node.id, h)} 
-      />
+      {/* Resize Handle only if content is showing */}
+      {showContent && (
+        <div 
+            className="mindo-resize-handle"
+            onMouseDown={handleResizeMouseDown}
+        />
+      )}
+
+      {/* Handles Inlined */}
+      <div className="mindo-handle mindo-handle-top" onMouseDown={(e) => handleHandleMouseDown(e, 'top')} onMouseUp={(e) => handleHandleMouseUp(e, 'top')} />
+      <div className="mindo-handle mindo-handle-right" onMouseDown={(e) => handleHandleMouseDown(e, 'right')} onMouseUp={(e) => handleHandleMouseUp(e, 'right')} />
+      <div className="mindo-handle mindo-handle-bottom" onMouseDown={(e) => handleHandleMouseDown(e, 'bottom')} onMouseUp={(e) => handleHandleMouseUp(e, 'bottom')} />
+      <div className="mindo-handle mindo-handle-left" onMouseDown={(e) => handleHandleMouseDown(e, 'left')} onMouseUp={(e) => handleHandleMouseUp(e, 'left')} />
 
       {isSelected && !isDragging && !isEditing && (
         <div 

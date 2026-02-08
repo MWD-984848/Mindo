@@ -79,40 +79,105 @@ html, body, #root {
     display: flex;
     flex-direction: column;
     border-radius: 0.75rem; /* rounded-xl */
-    border-width: 1px;
-    border-style: solid;
-    transition: all 0.2s;
+    /* Remove Border */
+    border: none;
+    /* FIX: Only animate non-position properties to prevent drag lag */
+    transition: box-shadow 0.2s, background-color 0.2s, opacity 0.2s; 
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
-    z-index: 20; /* Standard nodes above SVG (10) */
+    z-index: 20; 
+    /* Base Background for all nodes (Header will override for top part) */
+    background-color: #ffffff;
 }
+.theme-dark .mindo-node {
+    background-color: #1f2937; /* gray-800 */
+    color: #e5e7eb;
+}
+
+/* Group Specifics */
 .mindo-node.mindo-group {
     background-color: rgba(255, 255, 255, 0.5);
-    border-style: dashed;
-    border-width: 2px;
-    z-index: 1; /* Groups below SVG (10) */
+    border: 2px dashed #9ca3af;
+    z-index: 1; 
     box-shadow: none;
 }
 .theme-dark .mindo-node.mindo-group {
-    background-color: rgba(31, 41, 55, 0.5); /* bg-gray-800/50 */
-    border-color: #4b5563; /* border-gray-600 */
+    background-color: rgba(31, 41, 55, 0.5); 
+    border-color: #4b5563; 
 }
+
+/* Group Colors with Transparency */
+.mindo-node.mindo-group.mindo-theme-yellow {
+    background-color: rgba(253, 224, 71, 0.2); /* yellow-300 / 0.2 */
+    border-color: #eab308; /* yellow-500 */
+}
+.theme-dark .mindo-node.mindo-group.mindo-theme-yellow {
+    background-color: rgba(234, 179, 8, 0.2);
+    border-color: #ca8a04;
+}
+
+.mindo-node.mindo-group.mindo-theme-green {
+    background-color: rgba(134, 239, 172, 0.2); /* green-300 / 0.2 */
+    border-color: #22c55e; /* green-500 */
+}
+.theme-dark .mindo-node.mindo-group.mindo-theme-green {
+    background-color: rgba(34, 197, 94, 0.2);
+    border-color: #16a34a;
+}
+
+.mindo-node.mindo-group.mindo-theme-blue {
+    background-color: rgba(147, 197, 253, 0.2); /* blue-300 / 0.2 */
+    border-color: #3b82f6; /* blue-500 */
+}
+.theme-dark .mindo-node.mindo-group.mindo-theme-blue {
+    background-color: rgba(59, 130, 246, 0.2);
+    border-color: #2563eb;
+}
+
+.mindo-node.mindo-group.mindo-theme-purple {
+    background-color: rgba(216, 180, 254, 0.2); /* purple-300 / 0.2 */
+    border-color: #a855f7; /* purple-500 */
+}
+.theme-dark .mindo-node.mindo-group.mindo-theme-purple {
+    background-color: rgba(168, 85, 247, 0.2);
+    border-color: #9333ea;
+}
+
+.mindo-node.mindo-group.mindo-theme-red {
+    background-color: rgba(252, 165, 165, 0.2); /* red-300 / 0.2 */
+    border-color: #ef4444; /* red-500 */
+}
+.theme-dark .mindo-node.mindo-group.mindo-theme-red {
+    background-color: rgba(239, 68, 68, 0.2);
+    border-color: #dc2626;
+}
+
+.mindo-node.mindo-group.mindo-theme-gray {
+    background-color: rgba(209, 213, 219, 0.2); /* gray-300 / 0.2 */
+    border-color: #6b7280; /* gray-500 */
+}
+.theme-dark .mindo-node.mindo-group.mindo-theme-gray {
+    background-color: rgba(107, 114, 128, 0.2);
+    border-color: #4b5563;
+}
+
 
 .mindo-node:hover {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
 }
 .mindo-node.selected {
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); /* shadow-xl */
-    z-index: 30; /* Selected nodes highest */
-    /* Selection ring logic handled via border/box-shadow usually, but we use ring colors per theme below */
+    box-shadow: 0 0 0 2px #3b82f6, 0 10px 15px -3px rgba(0, 0, 0, 0.1); /* blue ring + shadow */
+    z-index: 30; 
 }
-/* Ensure selected groups stay below standard nodes if possible, or just below selected standard nodes */
 .mindo-node.mindo-group.selected {
-    z-index: 2; /* Selected group slightly higher than unselected group, but still below lines ideally, or managed via selection box */
+    z-index: 2; 
+    border-color: #3b82f6;
+    box-shadow: none;
 }
 
 .mindo-node.dragging {
     cursor: grabbing;
     opacity: 0.9;
+    /* Ensure no transition during drag */
     transition: none;
 }
 .mindo-node:not(.dragging) {
@@ -123,32 +188,39 @@ html, body, #root {
 .mindo-node-header {
     padding: 0.75rem;
     position: relative;
-    border-top-left-radius: 0.5rem; /* 9px approx to match container */
-    border-top-right-radius: 0.5rem;
+    border-top-left-radius: 0.75rem; 
+    border-top-right-radius: 0.75rem;
     font-weight: 700;
     text-align: center;
     white-space: pre-wrap;
     line-height: 1.25;
 }
 .mindo-node-header.has-content {
-    border-bottom-width: 1px;
-    border-bottom-style: solid;
+    /* No border bottom between header and content, just color separation */
 }
 .mindo-node-header:not(.has-content) {
-    border-bottom-left-radius: 0.5rem;
-    border-bottom-right-radius: 0.5rem;
+    border-bottom-left-radius: 0.75rem;
+    border-bottom-right-radius: 0.75rem;
 }
 
 /* Node Content */
 .mindo-node-content {
     padding: 0.75rem;
-    border-bottom-left-radius: 0.5rem;
-    border-bottom-right-radius: 0.5rem;
+    border-bottom-left-radius: 0.75rem;
+    border-bottom-right-radius: 0.75rem;
     flex-grow: 1;
-    min-height: 60px;
+    /* min-height logic handled in React */
     font-size: 0.875rem;
     white-space: pre-wrap;
     line-height: 1.625;
+    background-color: transparent; /* Inherit from node */
+    color: #374151;
+    /* Ensure content area doesn't collapse weirdly */
+    display: flex;
+    flex-direction: column;
+}
+.theme-dark .mindo-node-content {
+    color: #d1d5db;
 }
 
 /* Group Title Label */
@@ -159,188 +231,83 @@ html, body, #root {
     width: fit-content;
     align-self: flex-start;
     opacity: 0.8;
-    background-color: #e5e7eb; /* bg-gray-200 */
-    color: #374151; /* text-gray-700 */
+    background-color: #e5e7eb; 
+    color: #374151; 
     font-size: 0.875rem;
     font-weight: 700;
 }
 .theme-dark .mindo-group-label {
-    background-color: #374151; /* bg-gray-700 */
-    color: #e5e7eb; /* text-gray-200 */
+    background-color: #374151; 
+    color: #e5e7eb; 
 }
 
-/* --- Color Themes --- */
+/* --- Color Themes (Applied to Headers) --- */
+
 /* Yellow */
-.mindo-theme-yellow {
+.mindo-theme-yellow .mindo-node-header {
     background-color: #fefce8; /* bg-yellow-50 */
-    border-color: #fef08a; /* border-yellow-200 */
     color: #713f12; /* text-yellow-900 */
 }
-.mindo-theme-yellow .mindo-node-header {
-    background-color: #fef9c3; /* bg-yellow-100 */
-}
-.mindo-theme-yellow .mindo-node-header.has-content {
-    border-bottom-color: #fef08a;
-}
-.mindo-theme-yellow.selected {
-    box-shadow: 0 0 0 2px #facc15; /* ring-yellow-400 */
-}
-.theme-dark .mindo-theme-yellow {
-    background-color: #423e2a;
-    border-color: #a16207; /* border-yellow-700 */
-    color: #fef9c3; /* text-yellow-100 */
-}
 .theme-dark .mindo-theme-yellow .mindo-node-header {
-    background-color: #5c5428;
-}
-.theme-dark .mindo-theme-yellow .mindo-node-header.has-content {
-    border-bottom-color: #a16207;
+    background-color: #423e2a;
+    color: #fef9c3;
 }
 
 /* Green */
-.mindo-theme-green {
-    background-color: #f0fdf4;
-    border-color: #bbf7d0;
-    color: #14532d;
-}
 .mindo-theme-green .mindo-node-header {
-    background-color: #dcfce7;
-}
-.mindo-theme-green .mindo-node-header.has-content {
-    border-bottom-color: #bbf7d0;
-}
-.mindo-theme-green.selected {
-    box-shadow: 0 0 0 2px #4ade80;
-}
-.theme-dark .mindo-theme-green {
-    background-color: #1e3a29;
-    border-color: #15803d;
-    color: #dcfce7;
+    background-color: #f0fdf4; /* bg-green-50 */
+    color: #14532d; /* text-green-900 */
 }
 .theme-dark .mindo-theme-green .mindo-node-header {
-    background-color: #275236;
-}
-.theme-dark .mindo-theme-green .mindo-node-header.has-content {
-    border-bottom-color: #15803d;
+    background-color: #1e3a29;
+    color: #dcfce7;
 }
 
 /* Blue */
-.mindo-theme-blue {
-    background-color: #eff6ff;
-    border-color: #bfdbfe;
-    color: #1e3a8a;
-}
 .mindo-theme-blue .mindo-node-header {
-    background-color: #dbeafe;
-}
-.mindo-theme-blue .mindo-node-header.has-content {
-    border-bottom-color: #bfdbfe;
-}
-.mindo-theme-blue.selected {
-    box-shadow: 0 0 0 2px #60a5fa;
-}
-.theme-dark .mindo-theme-blue {
-    background-color: #1e2a3a;
-    border-color: #1d4ed8;
-    color: #dbeafe;
+    background-color: #eff6ff; /* bg-blue-50 */
+    color: #1e3a8a; /* text-blue-900 */
 }
 .theme-dark .mindo-theme-blue .mindo-node-header {
-    background-color: #274060;
-}
-.theme-dark .mindo-theme-blue .mindo-node-header.has-content {
-    border-bottom-color: #1d4ed8;
+    background-color: #1e2a3a;
+    color: #dbeafe;
 }
 
 /* Purple */
-.mindo-theme-purple {
-    background-color: #faf5ff;
-    border-color: #e9d5ff;
-    color: #581c87;
-}
 .mindo-theme-purple .mindo-node-header {
-    background-color: #f3e8ff;
-}
-.mindo-theme-purple .mindo-node-header.has-content {
-    border-bottom-color: #e9d5ff;
-}
-.mindo-theme-purple.selected {
-    box-shadow: 0 0 0 2px #c084fc;
-}
-.theme-dark .mindo-theme-purple {
-    background-color: #34243e;
-    border-color: #7e22ce;
-    color: #f3e8ff;
+    background-color: #faf5ff; /* bg-purple-50 */
+    color: #581c87; /* text-purple-900 */
 }
 .theme-dark .mindo-theme-purple .mindo-node-header {
-    background-color: #4d3260;
-}
-.theme-dark .mindo-theme-purple .mindo-node-header.has-content {
-    border-bottom-color: #7e22ce;
+    background-color: #34243e;
+    color: #f3e8ff;
 }
 
 /* Red */
-.mindo-theme-red {
-    background-color: #fef2f2;
-    border-color: #fecaca;
-    color: #7f1d1d;
-}
 .mindo-theme-red .mindo-node-header {
-    background-color: #fee2e2;
-}
-.mindo-theme-red .mindo-node-header.has-content {
-    border-bottom-color: #fecaca;
-}
-.mindo-theme-red.selected {
-    box-shadow: 0 0 0 2px #f87171;
-}
-.theme-dark .mindo-theme-red {
-    background-color: #3e2424;
-    border-color: #b91c1c;
-    color: #fee2e2;
+    background-color: #fef2f2; /* bg-red-50 */
+    color: #7f1d1d; /* text-red-900 */
 }
 .theme-dark .mindo-theme-red .mindo-node-header {
-    background-color: #603232;
-}
-.theme-dark .mindo-theme-red .mindo-node-header.has-content {
-    border-bottom-color: #b91c1c;
+    background-color: #3e2424;
+    color: #fee2e2;
 }
 
 /* Gray */
-.mindo-theme-gray {
-    background-color: #f9fafb;
-    border-color: #e5e7eb;
-    color: #111827;
-}
 .mindo-theme-gray .mindo-node-header {
-    background-color: #f3f4f6;
-}
-.mindo-theme-gray .mindo-node-header.has-content {
-    border-bottom-color: #e5e7eb;
-}
-.mindo-theme-gray.selected {
-    box-shadow: 0 0 0 2px #9ca3af;
-}
-.theme-dark .mindo-theme-gray {
-    background-color: #2a2a2a;
-    border-color: #4b5563;
-    color: #f3f4f6;
+    background-color: #f3f4f6; /* bg-gray-100 */
+    color: #111827; /* text-gray-900 */
 }
 .theme-dark .mindo-theme-gray .mindo-node-header {
-    background-color: #404040;
-}
-.theme-dark .mindo-theme-gray .mindo-node-header.has-content {
-    border-bottom-color: #4b5563;
-}
-/* Group specific overrides for dark mode selection */
-.theme-dark .mindo-group.selected {
-    box-shadow: 0 0 0 2px #3b82f6; /* blue-500 for groups */
+    background-color: #374151;
+    color: #f3f4f6;
 }
 
 /* --- Handles --- */
 .mindo-handle {
     position: absolute;
-    width: 1rem;
-    height: 1rem;
+    width: 0.8rem;
+    height: 0.8rem;
     background-color: white;
     border: 2px solid #60a5fa; /* blue-400 */
     border-radius: 9999px;
@@ -369,13 +336,13 @@ html, body, #root {
 }
 
 /* Handle Positions */
-.mindo-handle-top { top: -0.5rem; left: 50%; transform: translateX(-50%); }
+.mindo-handle-top { top: -0.4rem; left: 50%; transform: translateX(-50%); }
 .mindo-handle-top:hover { transform: translateX(-50%) scale(1.25); }
-.mindo-handle-right { top: 50%; right: -0.5rem; transform: translateY(-50%); }
+.mindo-handle-right { top: 50%; right: -0.4rem; transform: translateY(-50%); }
 .mindo-handle-right:hover { transform: translateY(-50%) scale(1.25); }
-.mindo-handle-bottom { bottom: -0.5rem; left: 50%; transform: translateX(-50%); }
+.mindo-handle-bottom { bottom: -0.4rem; left: 50%; transform: translateX(-50%); }
 .mindo-handle-bottom:hover { transform: translateX(-50%) scale(1.25); }
-.mindo-handle-left { top: 50%; left: -0.5rem; transform: translateY(-50%); }
+.mindo-handle-left { top: 50%; left: -0.4rem; transform: translateY(-50%); }
 .mindo-handle-left:hover { transform: translateY(-50%) scale(1.25); }
 
 /* --- Node Toolbar (Delete/Color) --- */
@@ -463,6 +430,7 @@ html, body, #root {
     cursor: se-resize;
     background-color: #d1d5db; /* gray-300 */
     border-top-left-radius: 0.5rem;
+    border-bottom-right-radius: 0.75rem;
     opacity: 0;
     transition: opacity 0.2s;
 }

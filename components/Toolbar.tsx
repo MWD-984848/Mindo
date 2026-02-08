@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Minus, Plus, Maximize, Sparkles, RefreshCcw, Image as ImageIcon, BoxSelect } from 'lucide-react';
+import { Minus, Plus, Maximize, Sparkles, RefreshCcw, Image as ImageIcon, BoxSelect, AlignCenterHorizontal, AlignCenterVertical } from 'lucide-react';
 
 interface ToolbarProps {
   scale: number;
@@ -11,8 +11,10 @@ interface ToolbarProps {
   onAiExpand: () => void;
   onAddGroup: () => void;
   onExportImage: () => void;
+  onAlign?: (direction: 'horizontal' | 'vertical') => void;
   isAiLoading: boolean;
   canGroup: boolean;
+  canAlign?: boolean;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -24,8 +26,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onAiExpand,
   onAddGroup,
   onExportImage,
+  onAlign,
   isAiLoading,
-  canGroup
+  canGroup,
+  canAlign
 }) => {
   return (
     <div className="mindo-toolbar">
@@ -48,6 +52,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button className="mindo-toolbar-btn" style={{ opacity: 0.5, cursor: 'not-allowed' }} title="Select multiple to group">
                 <BoxSelect size={18} />
             </button>
+        )}
+
+        {canAlign && onAlign && (
+            <>
+                <div className="mindo-toolbar-separator" />
+                <button onClick={() => onAlign('horizontal')} className="mindo-toolbar-btn" title="Align Horizontally">
+                    <AlignCenterVertical size={18} />
+                </button>
+                <button onClick={() => onAlign('vertical')} className="mindo-toolbar-btn" title="Align Vertically">
+                    <AlignCenterHorizontal size={18} />
+                </button>
+            </>
         )}
 
         <div className="mindo-toolbar-separator" />

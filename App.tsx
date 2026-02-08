@@ -51,8 +51,10 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   const itemStartRef = useRef<Position>({ x: 0, y: 0 });
   const hasCentered = useRef(false);
   const rafRef = useRef<number | null>(null); 
-  // Track if the update came from internal state change to prevent loops
-  const isInternalUpdate = useRef(false);
+  const initialNodesRef = useRef<MindMapNode[]>([]);
+  
+  // Data Sync Refs
+  const lastSavedData = useRef<string>("");
 
   // Dark Mode Detection
   useEffect(() => {
@@ -69,18 +71,32 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     return () => observer.disconnect();
   }, []);
 
-  // Sync with Prop Updates (Fixes: File load not updating UI)
+  // Sync with Prop Updates (Fixes: File load not updating UI, Loop Prevention)
   useEffect(() => {
     if (initialData) {
-        // Only update if the data is actually different to avoid unnecessary re-renders
-        // or let React handle the diffing via setNodes.
-        // We trust initialData from the parent View to be the "source of truth" when it changes.
-        setNodes(initialData.nodes || DEFAULT_INITIAL_NODES);
-        setEdges(initialData.edges || []);
-        if (initialData.transform) {
-            setTransform(initialData.transform);
+        // Construct a comparable string from initialData
+        // We normalize it to ensure the comparison is valid against our internal state structure
+        const incomingData = {
+            nodes: initialData.nodes || DEFAULT_INITIAL_NODES,
+            edges: initialData.edges || [],
+            transform: initialData.transform || { x: 0, y: 0, scale: 1 },
+            version: 1
+        };
+        const incomingString = JSON.stringify(incomingData, null, 2);
+
+        // If the incoming data is exactly what we last saved (an "echo"), ignore it.
+        // This prevents the UI from resetting if we are in the middle of a debounced save cycle,
+        // or if Obsidian re-sends the data we just wrote.
+        if (incomingString === lastSavedData.current) {
+            return;
         }
-        // If it's a fresh file load, we might want to center it, but transform logic handles that below
+
+        setNodes(incomingData.nodes);
+        setEdges(incomingData.edges);
+        setTransform(incomingData.transform);
+        
+        // Update baseline so we don't treat this external update as a new change to save
+        lastSavedData.current = incomingString;
     }
   }, [initialData]);
 
@@ -97,13 +113,22 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     }
   }, [initialData]);
 
-  // Auto Save
+  // Auto Save with Debounce
   useEffect(() => {
-      // Avoid saving immediately on mount if data matches
-      if (nodes === initialData?.nodes && edges === initialData?.edges) return;
+      // 1. Construct current state
+      const currentData = { nodes, edges, transform, version: 1 };
+      const dataString = JSON.stringify(currentData, null, 2);
 
-      const data = JSON.stringify({ nodes, edges, transform, version: 1 }, null, 2);
-      onSave(data);
+      // 2. Check if actually changed from last known saved state
+      if (dataString === lastSavedData.current) return;
+
+      // 3. Debounce the save
+      const timer = setTimeout(() => {
+          lastSavedData.current = dataString;
+          onSave(dataString);
+      }, 500); // 500ms debounce
+
+      return () => clearTimeout(timer);
   }, [nodes, edges, transform, onSave]);
 
 
@@ -137,24 +162,27 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   };
 
   const handleMouseDownCanvas = (e: React.MouseEvent) => {
+    // Middle Mouse (1) OR (Left Mouse (0) + Ctrl/Cmd) -> PANNING
+    if (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey))) {
+        setIsPanning(true);
+        dragStartRef.current = { x: e.clientX, y: e.clientY };
+        itemStartRef.current = { x: transform.x, y: transform.y };
+        return;
+    }
+
+    // Left Mouse (0) -> SELECTION BOX
     if (e.button === 0) {
         if (!e.shiftKey) {
+            // Standard behavior: clicking canvas clears selection unless shift is held
             setSelectedNodeIds(new Set());
             setSelectedEdgeId(null);
         }
 
-        if (e.shiftKey) {
-            // Start Selection Box
-            const rect = containerRef.current?.getBoundingClientRect();
-            if (rect) {
-                const startPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-                setSelectionBox({ start: startPos, end: startPos });
-            }
-        } else {
-            // Pan
-            setIsPanning(true);
-            dragStartRef.current = { x: e.clientX, y: e.clientY };
-            itemStartRef.current = { x: transform.x, y: transform.y };
+        // Always start selection box on left click drag (unless panning via ctrl)
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (rect) {
+            const startPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+            setSelectionBox({ start: startPos, end: startPos });
         }
     }
   };
@@ -265,6 +293,37 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     setSelectedNodeIds(new Set([newGroupId]));
   };
 
+  const handleAlign = (direction: 'horizontal' | 'vertical') => {
+    if (selectedNodeIds.size < 2) return;
+    
+    const selectedNodes = nodes.filter(n => selectedNodeIds.has(n.id));
+    if (selectedNodes.length === 0) return;
+
+    if (direction === 'horizontal') {
+        // Align Y coordinates (Center)
+        const totalY = selectedNodes.reduce((sum, n) => sum + (n.y + n.height/2), 0);
+        const avgY = totalY / selectedNodes.length;
+        
+        setNodes(prev => prev.map(n => {
+            if (selectedNodeIds.has(n.id)) {
+                return { ...n, y: avgY - n.height/2 };
+            }
+            return n;
+        }));
+    } else {
+        // Align X coordinates (Center)
+        const totalX = selectedNodes.reduce((sum, n) => sum + (n.x + n.width/2), 0);
+        const avgX = totalX / selectedNodes.length;
+        
+        setNodes(prev => prev.map(n => {
+            if (selectedNodeIds.has(n.id)) {
+                return { ...n, x: avgX - n.width/2 };
+            }
+            return n;
+        }));
+    }
+  };
+
   const handleNodeMouseDown = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     
@@ -345,7 +404,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
       setSnapPreview(null);
   };
 
-  const initialNodesRef = useRef<MindMapNode[]>([]);
   useEffect(() => {
       // Logic handled in mousedown now
   }, [draggingNodeId]); 
@@ -357,8 +415,18 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
        const clientY = e.clientY;
 
        rafRef.current = requestAnimationFrame(() => {
+           // Panning
+           if (isPanning) {
+               const dx = clientX - dragStartRef.current.x;
+               const dy = clientY - dragStartRef.current.y;
+               setTransform(prev => ({
+                 ...prev,
+                 x: itemStartRef.current.x + dx,
+                 y: itemStartRef.current.y + dy
+               }));
+           } 
            // Selection Box
-           if (selectionBox) {
+           else if (selectionBox) {
                const rect = containerRef.current?.getBoundingClientRect();
                if (rect) {
                    setSelectionBox(prev => prev ? ({ ...prev, end: { x: clientX - rect.left, y: clientY - rect.top } }) : null);
@@ -387,16 +455,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                   
                   return n;
               }));
-           } 
-           // Panning
-           else if (isPanning) {
-               const dx = clientX - dragStartRef.current.x;
-               const dy = clientY - dragStartRef.current.y;
-               setTransform(prev => ({
-                 ...prev,
-                 x: itemStartRef.current.x + dx,
-                 y: itemStartRef.current.y + dy
-               }));
            } 
            // Connection Line
            else if (connectionStart && containerRef.current) {
@@ -849,8 +907,10 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         onAiExpand={handleAiExpand}
         onAddGroup={handleCreateGroup}
         onExportImage={handleExportImage}
+        onAlign={handleAlign}
         isAiLoading={isAiLoading}
         canGroup={selectedNodeIds.size > 1}
+        canAlign={selectedNodeIds.size > 1}
       />
     </div>
   );
