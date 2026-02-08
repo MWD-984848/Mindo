@@ -47,8 +47,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   const [isPanning, setIsPanning] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
-  const [isDraggingFile, setIsDraggingFile] = useState(false);
-
+  
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasContentRef = useRef<HTMLDivElement>(null);
@@ -57,7 +56,10 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   const hasCentered = useRef(false);
   const rafRef = useRef<number | null>(null); 
   const initialNodesRef = useRef<MindMapNode[]>([]);
-  const dragCounter = useRef(0);
+  
+  // Keep latest transform in ref for event listeners
+  const transformRef = useRef(transform);
+  useEffect(() => { transformRef.current = transform; }, [transform]);
   
   // Data Sync Refs
   const lastSavedData = useRef<string>("");
@@ -77,11 +79,9 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     return () => observer.disconnect();
   }, []);
 
-  // Sync with Prop Updates (Fixes: File load not updating UI, Loop Prevention)
+  // Sync with Prop Updates
   useEffect(() => {
     if (initialData) {
-        // Construct a comparable string from initialData
-        // We normalize it to ensure the comparison is valid against our internal state structure
         const incomingData = {
             nodes: initialData.nodes || DEFAULT_INITIAL_NODES,
             edges: initialData.edges || [],
@@ -90,9 +90,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         };
         const incomingString = JSON.stringify(incomingData, null, 2);
 
-        // If the incoming data is exactly what we last saved (an "echo"), ignore it.
-        // This prevents the UI from resetting if we are in the middle of a debounced save cycle,
-        // or if Obsidian re-sends the data we just wrote.
         if (incomingString === lastSavedData.current) {
             return;
         }
@@ -101,12 +98,11 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         setEdges(incomingData.edges);
         setTransform(incomingData.transform);
         
-        // Update baseline so we don't treat this external update as a new change to save
         lastSavedData.current = incomingString;
     }
   }, [initialData]);
 
-  // Initial Center if new file
+  // Initial Center
   useEffect(() => {
     if ((!initialData || !initialData.nodes) && containerRef.current && !hasCentered.current) {
         const { clientWidth, clientHeight } = containerRef.current;
@@ -119,20 +115,17 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     }
   }, [initialData]);
 
-  // Auto Save with Debounce
+  // Auto Save
   useEffect(() => {
-      // 1. Construct current state
       const currentData = { nodes, edges, transform, version: 1 };
       const dataString = JSON.stringify(currentData, null, 2);
 
-      // 2. Check if actually changed from last known saved state
       if (dataString === lastSavedData.current) return;
 
-      // 3. Debounce the save
       const timer = setTimeout(() => {
           lastSavedData.current = dataString;
           onSave(dataString);
-      }, 500); // 500ms debounce
+      }, 500); 
 
       return () => clearTimeout(timer);
   }, [nodes, edges, transform, onSave]);
@@ -168,7 +161,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   };
 
   const handleMouseDownCanvas = (e: React.MouseEvent) => {
-    // Middle Mouse (1) OR (Left Mouse (0) + Ctrl/Cmd) -> PANNING
     if (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey))) {
         setIsPanning(true);
         dragStartRef.current = { x: e.clientX, y: e.clientY };
@@ -176,15 +168,11 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         return;
     }
 
-    // Left Mouse (0) -> SELECTION BOX
     if (e.button === 0) {
         if (!e.shiftKey) {
-            // Standard behavior: clicking canvas clears selection unless shift is held
             setSelectedNodeIds(new Set());
             setSelectedEdgeId(null);
         }
-
-        // Always start selection box on left click drag (unless panning via ctrl)
         const rect = containerRef.current?.getBoundingClientRect();
         if (rect) {
             const startPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -215,110 +203,73 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     setSelectedEdgeId(null);
   };
 
-  // --- Drag and Drop (Files/Images) ---
-  const handleDragEnter = (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dragCounter.current += 1;
-      if (e.dataTransfer.types.includes('Files')) {
-         setIsDraggingFile(true);
-      }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.dataTransfer.types.includes('Files')) {
-         e.dataTransfer.dropEffect = 'copy';
-      }
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dragCounter.current -= 1;
-      if (dragCounter.current === 0) {
-          setIsDraggingFile(false);
-      }
-  };
-
   const processImageFile = (file: File, x: number, y: number, index: number) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-          const result = ev.target?.result as string;
-          if (result) {
-              const newNode: MindMapNode = {
-                  id: generateId(),
-                  type: 'image',
-                  title: file.name,
-                  content: '',
-                  imageUrl: result,
-                  x: x + (index * 20),
-                  y: y + (index * 20),
-                  width: 200,
-                  height: 200, 
-                  color: 'gray'
-              };
-              setNodes(prev => [...prev, newNode]);
-          }
-      };
-      reader.readAsDataURL(file);
-  };
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        const result = ev.target?.result as string;
+        if (result) {
+            const img = new Image();
+            img.onload = () => {
+                const MAX_WIDTH = 300;
+                // Calculate dimensions based on aspect ratio
+                const ratio = img.width / img.height;
+                const width = Math.min(img.width, MAX_WIDTH);
+                // Add header height offset (~44px) to ensure image isn't cropped vertically
+                const HEADER_HEIGHT = 44; 
+                const imageHeight = width / ratio;
+                const height = imageHeight + HEADER_HEIGHT;
 
-  const handleDrop = async (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDraggingFile(false);
-      dragCounter.current = 0;
-      
-      const files = Array.from(e.dataTransfer.files) as File[];
-      const imageFiles = files.filter(f => f.type.startsWith('image/'));
-
-      if (imageFiles.length === 0) return;
-
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      const dropPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      const worldPos = screenToWorld(dropPos, transform);
-
-      imageFiles.forEach((file, index) => {
-          processImageFile(file, worldPos.x, worldPos.y, index);
-      });
+                const newNode: MindMapNode = {
+                    id: generateId(),
+                    type: 'image',
+                    title: file.name,
+                    content: '',
+                    imageUrl: result,
+                    x: x + (index * 20),
+                    y: y + (index * 20),
+                    width: width,
+                    height: height, 
+                    color: 'gray'
+                };
+                setNodes(prev => [...prev, newNode]);
+            };
+            img.src = result;
+        }
+    };
+    reader.readAsDataURL(file);
   };
 
   // Paste Handler
   useEffect(() => {
-      const handlePaste = (e: ClipboardEvent) => {
-          // Prevent pasting in input/textarea
-          const active = document.activeElement;
-          if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.getAttribute('contenteditable') === 'true')) {
-              return;
-          }
+    const handlePaste = (e: ClipboardEvent) => {
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.getAttribute('contenteditable') === 'true')) {
+            return;
+        }
 
-          if (e.clipboardData && e.clipboardData.files.length > 0) {
-              e.preventDefault();
-              const files = Array.from(e.clipboardData.files) as File[];
-              const imageFiles = files.filter(f => f.type.startsWith('image/'));
-              
-              if (imageFiles.length === 0) return;
-              
-              // Paste at center of current view
-              const rect = containerRef.current?.getBoundingClientRect();
-              if (!rect) return;
-              
-              const centerScreen = { x: rect.width / 2, y: rect.height / 2 };
-              const worldPos = screenToWorld(centerScreen, transform);
+        if (e.clipboardData && e.clipboardData.files.length > 0) {
+            e.preventDefault();
+            const files = Array.from(e.clipboardData.files) as File[];
+            const imageFiles = files.filter(f => f.type.startsWith('image/'));
+            
+            if (imageFiles.length === 0) return;
+            
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            
+            const centerScreen = { x: rect.width / 2, y: rect.height / 2 };
+            // Use ref for transform
+            const worldPos = screenToWorld(centerScreen, transformRef.current);
 
-              imageFiles.forEach((file, index) => {
-                  processImageFile(file, worldPos.x, worldPos.y, index);
-              });
-          }
-      };
+            imageFiles.forEach((file, index) => {
+                processImageFile(file, worldPos.x, worldPos.y, index);
+            });
+        }
+    };
 
-      window.addEventListener('paste', handlePaste);
-      return () => window.removeEventListener('paste', handlePaste);
-  }, [transform]); // Depend on transform to paste at correct location
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []); 
 
   const handleCreateGroup = () => {
     if (selectedNodeIds.size === 0) return;
@@ -920,10 +871,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
       ref={containerRef}
       className="mindo-canvas-container"
       onWheel={handleWheel}
-      onDragEnter={handleDragEnter}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
     >
       <div 
         style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, outline: 'none', cursor: isPanning ? 'grabbing' : 'default' }}
@@ -1131,14 +1078,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         canGroup={selectedNodeIds.size > 1}
         canAlign={selectedNodeIds.size > 1}
       />
-      
-      {isDraggingFile && (
-          <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '2px dashed #3b82f6', zIndex: 100, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ padding: '1rem', backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                  拖放图片以添加
-              </div>
-          </div>
-      )}
     </div>
   );
 };

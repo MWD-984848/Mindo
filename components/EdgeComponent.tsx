@@ -347,7 +347,7 @@ export const EdgeMenu: React.FC<{
             </div>
 
             {/* Colors */}
-            <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'nowrap' }}>
                 {EDGE_COLORS.map(c => (
                     <button
                         key={c}
@@ -360,7 +360,8 @@ export const EdgeMenu: React.FC<{
                             cursor: 'pointer',
                             transform: edge.color === c ? 'scale(1.1)' : 'scale(1)',
                             transition: 'transform 0.2s',
-                            padding: 0
+                            padding: 0,
+                            flexShrink: 0
                         }}
                         onClick={() => onUpdate(edge.id, { color: c })}
                         title={c}
@@ -375,24 +376,24 @@ export const EdgeMenu: React.FC<{
                     className="mindo-edge-action-btn" 
                     title="切换箭头方向"
                 >
-                    <ArrowLeftRight size={18} />
-                    <span style={{ fontSize: '10px', fontWeight: 500 }}>箭头</span>
+                    <ArrowLeftRight size={16} />
+                    <span>箭头</span>
                 </button>
                 <button 
                     onClick={toggleStyle} 
                     className="mindo-edge-action-btn" 
                     title="切换线条样式"
                 >
-                    <Activity size={18} />
-                    <span style={{ fontSize: '10px', fontWeight: 500 }}>样式</span>
+                    <Activity size={16} />
+                    <span>样式</span>
                 </button>
                 <button 
                     onClick={() => onDelete(edge.id)} 
                     className="mindo-edge-action-btn delete" 
                     title="删除连接"
                 >
-                    <Trash2 size={18} />
-                    <span style={{ fontSize: '10px', fontWeight: 500 }}>删除</span>
+                    <Trash2 size={16} />
+                    <span>删除</span>
                 </button>
             </div>
         </div>

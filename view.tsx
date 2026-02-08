@@ -15,11 +15,6 @@ export class MindoView extends TextFileView {
     
     constructor(leaf: WorkspaceLeaf) {
         super(leaf);
-        // We can access the plugin instance via the app object if needed, 
-        // but typically plugins pass themselves to views or we look it up.
-        // For simplicity here, we assume the leaf's view type matches our plugin.
-        // A cleaner way is to have the plugin pass itself, but strict Obsidian typing makes that tricky in constructor.
-        // We will grab it from the global app.plugins if needed, or rely on saving.
     }
 
     getViewType() {

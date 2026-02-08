@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Minus, Plus, Maximize, Sparkles, RefreshCcw, Image as ImageIcon, BoxSelect, AlignCenterHorizontal, AlignCenterVertical } from 'lucide-react';
+import { Minus, Plus, Maximize, Sparkles, RefreshCcw, Image as ImageIcon, BoxSelect, AlignCenterHorizontal, AlignCenterVertical, ChevronDown } from 'lucide-react';
 
 interface ToolbarProps {
   scale: number;
@@ -35,21 +35,25 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   return (
     <div className="mindo-toolbar">
-      {/* File Operations */}
-      <div className="mindo-toolbar-group">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <button 
-                onClick={() => onExportImage(parseInt(exportRes))} 
-                className="mindo-toolbar-btn" 
-                title="导出图片"
-            >
-                <ImageIcon size={18} />
-            </button>
-            <select 
+      
+      {/* Left: Image Export */}
+      <div className="mindo-toolbar-section">
+        <button 
+            onClick={() => onExportImage(parseInt(exportRes))} 
+            className="mindo-toolbar-btn" 
+            title="导出图片"
+        >
+            <ImageIcon size={18} />
+        </button>
+        
+        <div className="mindo-select-container">
+             <span className="mindo-select-label">{exportRes}x</span>
+             <ChevronDown size={12} className="mindo-select-arrow" />
+             <select 
                 value={exportRes} 
                 onChange={(e) => setExportRes(e.target.value)}
-                className="mindo-toolbar-select"
-                title="导出清晰度/倍数"
+                className="mindo-hidden-select"
+                title="导出清晰度"
             >
                 <option value="1">1x</option>
                 <option value="2">2x</option>
@@ -59,66 +63,66 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </div>
       </div>
 
-      {/* Main Controls */}
-      <div className="mindo-toolbar-group">
-        
-        {canGroup ? (
-             <button onClick={onAddGroup} className="mindo-toolbar-btn mindo-group-btn" title="选中项编组">
-                <BoxSelect size={18} />
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, marginLeft: '4px' }}>编组</span>
+      <div className="mindo-toolbar-divider" />
+
+      {/* Middle-Left: Group & Align */}
+      <button 
+        onClick={onAddGroup} 
+        className={`mindo-toolbar-btn ${!canGroup ? 'disabled' : ''}`} 
+        title="编组"
+        disabled={!canGroup}
+      >
+          <BoxSelect size={18} style={{ strokeDasharray: '4 2', opacity: canGroup ? 1 : 0.5 }} />
+      </button>
+
+      {canAlign && onAlign && (
+          <>
+            <button onClick={() => onAlign('horizontal')} className="mindo-toolbar-btn" title="水平对齐">
+                <AlignCenterVertical size={18} />
             </button>
-        ) : (
-            <button className="mindo-toolbar-btn" style={{ opacity: 0.5, cursor: 'not-allowed' }} title="选择多个节点进行编组">
-                <BoxSelect size={18} />
+            <button onClick={() => onAlign('vertical')} className="mindo-toolbar-btn" title="垂直对齐">
+                <AlignCenterHorizontal size={18} />
             </button>
-        )}
+          </>
+      )}
 
-        {canAlign && onAlign && (
-            <>
-                <div className="mindo-toolbar-separator" />
-                <button onClick={() => onAlign('horizontal')} className="mindo-toolbar-btn" title="水平对齐">
-                    <AlignCenterVertical size={18} />
-                </button>
-                <button onClick={() => onAlign('vertical')} className="mindo-toolbar-btn" title="垂直对齐">
-                    <AlignCenterHorizontal size={18} />
-                </button>
-            </>
-        )}
+      {/* Center: AI Expand */}
+      <div className="mindo-toolbar-divider" />
 
-        <div className="mindo-toolbar-separator" />
+      <button
+        onClick={onAiExpand}
+        className="mindo-ai-btn"
+        disabled={isAiLoading}
+      >
+        <Sparkles size={16} className={isAiLoading ? 'animate-spin' : ''} />
+        <span>AI 扩展</span>
+      </button>
 
-        <button
-          onClick={onAiExpand}
-          className="mindo-ai-btn"
-          disabled={isAiLoading}
-        >
-          <Sparkles size={16} className={isAiLoading ? 'animate-spin' : ''} />
-          {isAiLoading ? '思考中...' : 'AI 扩展'}
-        </button>
+      <div className="mindo-toolbar-divider" />
 
-        <div className="mindo-toolbar-separator" />
+      {/* Middle-Right: Zoom */}
+      <button onClick={onZoomOut} className="mindo-toolbar-btn" title="缩小">
+        <Minus size={16} />
+      </button>
+      
+      <span className="mindo-zoom-text">
+        {Math.round(scale * 100)}%
+      </span>
 
-        <button onClick={onZoomOut} className="mindo-toolbar-btn" title="缩小">
-          <Minus size={18} />
-        </button>
-        
-        <span style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: '#9ca3af', width: '3rem', textAlign: 'center', userSelect: 'none' }}>
-          {Math.round(scale * 100)}%
-        </span>
+      <button onClick={onZoomIn} className="mindo-toolbar-btn" title="放大">
+        <Plus size={16} />
+      </button>
 
-        <button onClick={onZoomIn} className="mindo-toolbar-btn" title="放大">
-          <Plus size={18} />
-        </button>
-      </div>
+      {/* Right: View Controls */}
+      <div className="mindo-toolbar-divider" />
 
-      <div className="mindo-toolbar-group">
-        <button onClick={onFitView} className="mindo-toolbar-btn" title="适应视图">
-          <Maximize size={18} />
-        </button>
-        <button onClick={onReset} className="mindo-toolbar-btn" title="重置画布">
-          <RefreshCcw size={18} />
-        </button>
-      </div>
+      <button onClick={onFitView} className="mindo-toolbar-btn" title="适应视图">
+        <Maximize size={16} />
+      </button>
+      <button onClick={onReset} className="mindo-toolbar-btn" title="重置画布">
+        <RefreshCcw size={16} />
+      </button>
+      
     </div>
   );
 };
