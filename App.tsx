@@ -891,13 +891,14 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     }
   };
 
-  const handleExportImage = useCallback(async () => {
+  const handleExportImage = useCallback(async (pixelRatio: number = 2) => {
     if (canvasContentRef.current === null) {
       return;
     }
     try {
         const dataUrl = await htmlToImage.toPng(canvasContentRef.current, {
             backgroundColor: darkMode ? '#111827' : '#ffffff',
+            pixelRatio: pixelRatio // Use the passed resolution multiplier
         });
         const link = document.createElement('a');
         link.download = `${fileName || '思维导图'}.png`;

@@ -378,14 +378,15 @@
     background-color: var(--background-primary);
     padding: 0.375rem;
     border-radius: 9999px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    border: 1px solid var(--background-modifier-border);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    /* Removed Border */
+    border: none;
     z-index: 30;
     transform-origin: bottom;
 }
 .theme-dark .mindo-node-tools {
     background-color: var(--background-primary, #1f2937);
-    border-color: var(--background-modifier-border, #374151);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 /* Group Tools Position */
 .mindo-group-tools {
@@ -398,8 +399,8 @@
     background-color: var(--background-primary);
     padding: 0.25rem;
     border-radius: 9999px;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-    border: 1px solid var(--background-modifier-border);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    border: none;
 }
 
 .mindo-tool-btn {
@@ -422,7 +423,8 @@
     width: 1rem;
     height: 1rem;
     border-radius: 9999px;
-    border: 1px solid var(--background-modifier-border, #e5e7eb);
+    /* Removed individual border on color buttons, or kept minimal */
+    border: 1px solid rgba(0,0,0,0.1);
     cursor: pointer;
     transition: transform 0.2s;
     padding: 0;
@@ -468,21 +470,26 @@
 .mindo-toolbar-group {
     background-color: var(--background-primary);
     backdrop-filter: blur(4px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    border: 1px solid var(--background-modifier-border);
+    /* Flattened shadow, removed border */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    border: none;
     border-radius: 1rem;
     padding: 0.5rem;
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    opacity: 0.9;
+    opacity: 0.95;
+}
+.theme-dark .mindo-toolbar-group {
+     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .mindo-toolbar-btn {
     padding: 0.5rem;
-    border-radius: 0.75rem;
+    border-radius: 0.5rem;
     color: var(--text-muted, #4b5563);
     background: transparent;
+    /* Removed border */
     border: none;
     cursor: pointer;
     display: flex;
@@ -494,11 +501,28 @@
     background-color: var(--background-modifier-hover, #f3f4f6);
 }
 
+/* Selector for resolution */
+.mindo-toolbar-select {
+    background-color: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0 0.25rem;
+    outline: none;
+    height: 100%;
+}
+.mindo-toolbar-select:hover {
+    color: var(--text-normal);
+}
+
 .mindo-toolbar-separator {
     width: 1px;
     height: 1.5rem;
     background-color: var(--background-modifier-border, #e5e7eb);
     margin: 0 0.25rem;
+    opacity: 0.5;
 }
 
 .mindo-ai-btn {
@@ -514,15 +538,17 @@
     border: none;
     cursor: pointer;
     transition: all 0.2s;
+    box-shadow: none; /* Removed 3D shadow */
 }
 .mindo-ai-btn:hover:not(:disabled) {
-    transform: scale(1.05);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
 }
 .mindo-ai-btn:disabled {
     background: var(--background-modifier-disabled);
     color: var(--text-muted);
     cursor: not-allowed;
+    box-shadow: none;
 }
 
 .mindo-group-btn {
@@ -544,7 +570,9 @@
     
     background-color: var(--background-primary);
     backdrop-filter: blur(4px);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px var(--background-modifier-border);
+    /* Flattened */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: none;
     border-radius: 0.75rem;
     padding: 0.75rem;
     display: flex;
@@ -554,6 +582,9 @@
     min-width: 20rem;
     
     animation: slideDown 0.2s ease-out;
+}
+.theme-dark .mindo-edge-menu {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* Specific layout for the panel content */
@@ -574,7 +605,7 @@
     background-color: var(--background-secondary);
     border-radius: 0.5rem;
     padding: 0 0.5rem;
-    border: 1px solid var(--background-modifier-border);
+    border: none; /* Removed border */
 }
 .mindo-edge-label-input input {
     flex: 1;
@@ -607,7 +638,7 @@
 }
 .mindo-edge-type-btn.active {
     background-color: var(--background-primary);
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     color: var(--text-normal);
 }
 

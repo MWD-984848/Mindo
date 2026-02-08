@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Minus, Plus, Maximize, Sparkles, RefreshCcw, Image as ImageIcon, BoxSelect, AlignCenterHorizontal, AlignCenterVertical } from 'lucide-react';
 
 interface ToolbarProps {
@@ -10,7 +10,7 @@ interface ToolbarProps {
   onReset: () => void;
   onAiExpand: () => void;
   onAddGroup: () => void;
-  onExportImage: () => void;
+  onExportImage: (pixelRatio: number) => void;
   onAlign?: (direction: 'horizontal' | 'vertical') => void;
   isAiLoading: boolean;
   canGroup: boolean;
@@ -31,13 +31,32 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   canGroup,
   canAlign
 }) => {
+  const [exportRes, setExportRes] = useState('2');
+
   return (
     <div className="mindo-toolbar">
       {/* File Operations */}
       <div className="mindo-toolbar-group">
-        <button onClick={onExportImage} className="mindo-toolbar-btn" title="导出图片">
-            <ImageIcon size={18} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <button 
+                onClick={() => onExportImage(parseInt(exportRes))} 
+                className="mindo-toolbar-btn" 
+                title="导出图片"
+            >
+                <ImageIcon size={18} />
+            </button>
+            <select 
+                value={exportRes} 
+                onChange={(e) => setExportRes(e.target.value)}
+                className="mindo-toolbar-select"
+                title="导出清晰度/倍数"
+            >
+                <option value="1">1x</option>
+                <option value="2">2x</option>
+                <option value="3">3x</option>
+                <option value="4">4x</option>
+            </select>
+        </div>
       </div>
 
       {/* Main Controls */}
