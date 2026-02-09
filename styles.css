@@ -683,10 +683,13 @@
 
 /* Edge Label Styling */
 .mindo-edge-label {
-    background-color: var(--background-primary);
+    /* Use var(--background-primary) which matches the main canvas background */
+    background-color: var(--background-primary); 
+    /* Fallback to opaque white/dark for cases where variable is transparent or missing */
+    background-color: var(--background-primary, #ffffff);
+    
     color: var(--text-normal);
-    padding: 2px 4px;
-    border-radius: 4px;
+    
     font-size: 14px;
     font-weight: 500;
     
@@ -703,12 +706,37 @@
     
     display: inline-block;
     transition: transform 0.1s;
+    
+    /* Ensure it stacks correctly within its layer */
+    position: relative;
+    z-index: 1;
 }
+
+/* Base style (plain) */
+.mindo-edge-label.plain {
+    padding: 2px 4px;
+    border: none;
+}
+
+/* Boxed / Bordered style */
+.mindo-edge-label.border {
+    padding: 3px 8px;
+    /* Ensure opaque background for bordered style to mask lines */
+    background-color: var(--background-primary, #ffffff);
+    border-width: 1.5px;
+    border-style: solid;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+/* Dark mode overrides for fallbacks */
 .theme-dark .mindo-edge-label {
-    background-color: var(--background-primary); 
-    box-shadow: none;
+    background-color: var(--background-primary, #1f2937);
 }
+.theme-dark .mindo-edge-label.border {
+    background-color: var(--background-primary, #1f2937);
+}
+
 .mindo-edge-label:hover {
     transform: scale(1.05);
-    box-shadow: none;
 }

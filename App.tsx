@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MindMapNode, MindMapEdge, ViewportTransform, Position, HandlePosition, MindoSettings, NodeColor } from './types';
 import { generateId, screenToWorld, getHandlePosition, getNearestHandle, getCenter, getBezierMidpoint } from './utils/geometry';
 import { NodeComponent } from './components/NodeComponent';
-import { EdgeComponent, EdgeMenu } from './components/EdgeComponent';
+import { EdgeComponent, EdgeMenu, EdgeLabel } from './components/EdgeComponent';
 import { Toolbar } from './components/Toolbar';
 import { expandIdea, AiResult } from './services/aiService';
 import * as htmlToImage from 'html-to-image';
@@ -1027,7 +1027,26 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
             })}
           </svg>
 
-          {/* Layer 3: Standard Nodes (Foreground) */}
+          {/* Layer 3: Edge Labels (Middle-Top, zIndex 15) */}
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 15 }}>
+            {edges.map(edge => {
+              const source = nodes.find(n => n.id === edge.from);
+              const target = nodes.find(n => n.id === edge.to);
+              if (!source || !target) return null;
+              
+              return (
+                <EdgeLabel
+                  key={edge.id}
+                  edge={edge}
+                  sourceNode={source}
+                  targetNode={target}
+                  onSelect={handleEdgeSelect}
+                />
+              );
+            })}
+          </div>
+
+          {/* Layer 4: Standard Nodes (Foreground, zIndex 20) */}
           {standardNodes.map(node => (
             <NodeComponent
               key={node.id}
@@ -1048,7 +1067,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
             />
           ))}
 
-          {/* Layer 4: Controls Overlay (Top) - zIndex 60 to be above Nodes (zIndex 30) */}
+          {/* Layer 5: Controls Overlay (Top) - zIndex 60 to be above Nodes (zIndex 20) */}
           <svg style={{ overflow: 'visible', position: 'absolute', top: 0, left: 0, pointerEvents: 'none', width: '1px', height: '1px', zIndex: 60 }}>
             {/* Reconnect Handles for Selected Edge */}
             {selectedEdgeObj && selectedEdgeId && (() => {

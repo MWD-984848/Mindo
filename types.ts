@@ -14,6 +14,7 @@ export type HandlePosition = 'top' | 'right' | 'bottom' | 'left';
 export type EdgeStyle = 'solid' | 'dashed' | 'dotted';
 export type EdgeArrow = 'none' | 'to' | 'from' | 'both';
 export type EdgeType = 'bezier' | 'straight' | 'step';
+export type EdgeLabelStyle = 'plain' | 'border'; // New type for label styling
 
 export interface MindoSettings {
   aiProvider: 'gemini' | 'openai';
@@ -44,6 +45,7 @@ export interface MindMapEdge {
   toHandle: HandlePosition;
   // New features
   label?: string;
+  labelStyle?: EdgeLabelStyle; // New property
   style?: EdgeStyle;
   color?: string; // Hex code or standard color name
   arrow?: EdgeArrow;

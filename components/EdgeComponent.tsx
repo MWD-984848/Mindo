@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { MindMapEdge, MindMapNode, Position, EDGE_COLORS, EdgeType, ViewportTransform } from '../types';
 import { getEdgePath, getHandlePosition, getBezierMidpoint, getQuadraticAngleAtT, getCubicAngleAtT, screenToWorld } from '../utils/geometry';
-import { Trash2, Type, ArrowLeftRight, Activity, Spline, ArrowUpRight, GitCommitHorizontal } from 'lucide-react';
+import { Trash2, Type, ArrowLeftRight, Activity, Spline, ArrowUpRight, GitCommitHorizontal, Tag } from 'lucide-react';
 
 interface EdgeComponentProps {
   edge: MindMapEdge;
@@ -36,9 +36,6 @@ export const EdgeComponent: React.FC<EdgeComponentProps> = ({
   
   // Backwards compatibility for single control point
   const breakpoints = edge.breakpoints || (edge.controlPoint ? [edge.controlPoint] : []);
-
-  // Midpoint logic for label
-  const midPoint = getBezierMidpoint(start, end, edge.fromHandle, edge.toHandle, edge.controlPoint, edge.type, breakpoints);
 
   // Path Generation
   const pathD = getEdgePath(sourceNode, targetNode, edge.fromHandle, edge.toHandle, edge.controlPoint, edge.type, breakpoints);
@@ -224,35 +221,6 @@ export const EdgeComponent: React.FC<EdgeComponentProps> = ({
         {showStartArrow && renderArrow('start')}
         {showEndArrow && renderArrow('end')}
 
-        {/* Label */}
-        {edge.label && (
-             <foreignObject 
-                x={midPoint.x} 
-                y={midPoint.y} 
-                width="1" 
-                height="1"
-                style={{ overflow: 'visible', pointerEvents: 'none' }}
-            >
-                <div style={{
-                    transform: 'translate(-50%, -50%)',
-                    width: 'max-content',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    pointerEvents: 'auto' // Re-enable pointer events for the label itself
-                }}>
-                    <div 
-                        className="mindo-edge-label"
-                        onMouseDown={(e) => onSelect(e, edge.id)}
-                        style={{
-                            borderColor: strokeColor // Optional: match border to line color if you want, or keep default
-                        }}
-                    >
-                        {edge.label}
-                    </div>
-                </div>
-             </foreignObject>
-        )}
-
         {/* Breakpoints / Controls */}
         {isSelected && edge.type !== 'step' && (
             <>
@@ -277,6 +245,51 @@ export const EdgeComponent: React.FC<EdgeComponentProps> = ({
   );
 };
 
+// Seperate Component for Label (HTML Layer)
+export const EdgeLabel: React.FC<{
+    edge: MindMapEdge;
+    sourceNode: MindMapNode;
+    targetNode: MindMapNode;
+    onSelect: (e: React.MouseEvent, id: string) => void;
+}> = ({ edge, sourceNode, targetNode, onSelect }) => {
+    if (!edge.label) return null;
+
+    const start = getHandlePosition(sourceNode, edge.fromHandle);
+    const end = getHandlePosition(targetNode, edge.toHandle);
+    const breakpoints = edge.breakpoints || (edge.controlPoint ? [edge.controlPoint] : []);
+    const midPoint = getBezierMidpoint(start, end, edge.fromHandle, edge.toHandle, edge.controlPoint, edge.type, breakpoints);
+    const strokeColor = edge.color || '#94a3b8';
+
+    return (
+        <div 
+            style={{
+                position: 'absolute',
+                left: `${midPoint.x}px`,
+                top: `${midPoint.y}px`,
+                transform: 'translate(-50%, -50%)',
+                pointerEvents: 'none', // Allow clicking through empty areas of container div
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 15
+            }}
+        >
+             <div 
+                className={`mindo-edge-label ${edge.labelStyle === 'border' ? 'border' : 'plain'}`}
+                onMouseDown={(e) => { e.stopPropagation(); onSelect(e, edge.id); }}
+                style={{
+                    // Apply dynamic colors for the 'border' style
+                    borderColor: edge.labelStyle === 'border' ? strokeColor : undefined,
+                    color: edge.labelStyle === 'border' ? strokeColor : undefined,
+                    pointerEvents: 'auto', // Re-enable pointer events for the label
+                }}
+            >
+                {edge.label}
+            </div>
+        </div>
+    );
+}
+
 export const EdgeMenu: React.FC<{
     edge: MindMapEdge;
     onUpdate: (id: string, updates: Partial<MindMapEdge>) => void;
@@ -298,6 +311,11 @@ export const EdgeMenu: React.FC<{
         const styles: MindMapEdge['style'][] = ['solid', 'dashed', 'dotted'];
         const currentIdx = styles.indexOf(edge.style || 'solid');
         onUpdate(edge.id, { style: styles[(currentIdx + 1) % styles.length] });
+    };
+
+    const toggleLabelStyle = () => {
+        const newStyle = edge.labelStyle === 'border' ? 'plain' : 'border';
+        onUpdate(edge.id, { labelStyle: newStyle });
     };
 
     const setType = (type: EdgeType) => {
@@ -372,6 +390,17 @@ export const EdgeMenu: React.FC<{
 
             {/* Actions */}
             <div className="mindo-edge-menu-row">
+                 {/* Label Style Toggle */}
+                <button
+                    onClick={toggleLabelStyle}
+                    className={`mindo-edge-action-btn ${edge.labelStyle === 'border' ? 'active' : ''}`}
+                    title="切换标签样式 (边框/无)"
+                    style={{ backgroundColor: edge.labelStyle === 'border' ? 'rgba(0,0,0,0.05)' : 'transparent' }}
+                >
+                    <Tag size={16} />
+                    <span>边框</span>
+                </button>
+
                 <button 
                     onClick={toggleArrow} 
                     className="mindo-edge-action-btn" 
