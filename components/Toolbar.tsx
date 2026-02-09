@@ -15,6 +15,7 @@ interface ToolbarProps {
   isAiLoading: boolean;
   canGroup: boolean;
   canAlign?: boolean;
+  hasSingleSelection: boolean;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -29,7 +30,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onAlign,
   isAiLoading,
   canGroup,
-  canAlign
+  canAlign,
+  hasSingleSelection
 }) => {
   const [exportRes, setExportRes] = useState('2');
 
@@ -92,7 +94,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       <button
         onClick={onAiExpand}
         className="mindo-ai-btn"
-        disabled={isAiLoading}
+        disabled={isAiLoading || !hasSingleSelection}
+        title={hasSingleSelection ? "AI 扩展" : "请选中一个节点以使用 AI"}
       >
         <Sparkles size={16} className={isAiLoading ? 'animate-spin' : ''} />
         <span>AI 扩展</span>

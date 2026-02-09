@@ -8,8 +8,8 @@
     /* Inherit font from Obsidian */
     font-family: inherit;
     user-select: none;
-    /* Use Obsidian CSS variables */
-    background-color: var(--background-primary);
+    /* Use transparent to inherit Obsidian workspace background */
+    background-color: transparent;
     color: var(--text-normal);
     isolation: isolate;
 }
@@ -42,7 +42,7 @@
 
 /* Dark mode fallback if variables fail (though variables usually work) */
 .theme-dark .mindo-canvas-container {
-    background-color: var(--background-primary, #111827); 
+    background-color: transparent; 
     color: var(--text-normal, #e5e7eb); 
 }
 
@@ -76,89 +76,79 @@
     border-radius: 0.75rem; /* rounded-xl */
     border: none;
     transition: box-shadow 0.2s, background-color 0.2s, opacity 0.2s; 
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
+    /* Enhanced Shadow for better separation */
+    box-shadow: 
+        0 10px 25px -5px rgba(0, 0, 0, 0.25), 
+        0 8px 10px -6px rgba(0, 0, 0, 0.15),
+        0 0 0 1px rgba(0, 0, 0, 0.05); /* Subtle border ring */
     z-index: 20; 
     background-color: var(--background-primary);
-    min-width: 100px; /* Prevent total collapse */
+    min-width: 50px; /* Prevent total collapse */
 }
 .theme-dark .mindo-node {
     background-color: var(--background-secondary, #1f2937);
     color: var(--text-normal, #e5e7eb);
+    box-shadow: 
+        0 10px 25px -5px rgba(0, 0, 0, 0.5), 
+        0 8px 10px -6px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 /* Group Specifics */
 .mindo-node.mindo-group {
-    background-color: rgba(255, 255, 255, 0.5);
+    background-color: rgba(255, 255, 255, 0.3);
     border: 2px dashed #9ca3af;
     z-index: 1; 
     box-shadow: none;
 }
 .theme-dark .mindo-node.mindo-group {
-    background-color: rgba(31, 41, 55, 0.5); 
+    background-color: rgba(31, 41, 55, 0.3); 
     border-color: #4b5563; 
 }
 
-/* Group Colors with Transparency */
-.mindo-node.mindo-group.mindo-theme-yellow {
-    background-color: rgba(253, 224, 71, 0.2); /* yellow-300 / 0.2 */
-    border-color: #eab308; /* yellow-500 */
-}
-.theme-dark .mindo-node.mindo-group.mindo-theme-yellow {
-    background-color: rgba(234, 179, 8, 0.2);
-    border-color: #ca8a04;
-}
-
-.mindo-node.mindo-group.mindo-theme-green {
-    background-color: rgba(134, 239, 172, 0.2); /* green-300 / 0.2 */
-    border-color: #22c55e; /* green-500 */
-}
-.theme-dark .mindo-node.mindo-group.mindo-theme-green {
-    background-color: rgba(34, 197, 94, 0.2);
-    border-color: #16a34a;
-}
-
-.mindo-node.mindo-group.mindo-theme-blue {
-    background-color: rgba(147, 197, 253, 0.2); /* blue-300 / 0.2 */
-    border-color: #3b82f6; /* blue-500 */
-}
-.theme-dark .mindo-node.mindo-group.mindo-theme-blue {
-    background-color: rgba(59, 130, 246, 0.2);
-    border-color: #2563eb;
-}
-
-.mindo-node.mindo-group.mindo-theme-purple {
-    background-color: rgba(216, 180, 254, 0.2); /* purple-300 / 0.2 */
-    border-color: #a855f7; /* purple-500 */
-}
-.theme-dark .mindo-node.mindo-group.mindo-theme-purple {
-    background-color: rgba(168, 85, 247, 0.2);
-    border-color: #9333ea;
-}
-
-.mindo-node.mindo-group.mindo-theme-red {
-    background-color: rgba(252, 165, 165, 0.2); /* red-300 / 0.2 */
-    border-color: #ef4444; /* red-500 */
-}
-.theme-dark .mindo-node.mindo-group.mindo-theme-red {
-    background-color: rgba(239, 68, 68, 0.2);
-    border-color: #dc2626;
-}
-
+/* Group Colors with Transparency - Matches new bright palette */
 .mindo-node.mindo-group.mindo-theme-gray {
-    background-color: rgba(209, 213, 219, 0.2); /* gray-300 / 0.2 */
-    border-color: #6b7280; /* gray-500 */
+    background-color: rgba(163, 163, 163, 0.1); 
+    border-color: #a3a3a3;
 }
-.theme-dark .mindo-node.mindo-group.mindo-theme-gray {
-    background-color: rgba(107, 114, 128, 0.2);
-    border-color: #4b5563;
+.mindo-node.mindo-group.mindo-theme-red {
+    background-color: rgba(255, 107, 107, 0.1);
+    border-color: #ff6b6b;
 }
-
+.mindo-node.mindo-group.mindo-theme-yellow {
+    background-color: rgba(252, 196, 25, 0.1);
+    border-color: #fcc419;
+}
+.mindo-node.mindo-group.mindo-theme-green {
+    background-color: rgba(81, 207, 102, 0.1);
+    border-color: #51cf66;
+}
+.mindo-node.mindo-group.mindo-theme-blue {
+    background-color: rgba(77, 171, 247, 0.1);
+    border-color: #4dabf7;
+}
+.mindo-node.mindo-group.mindo-theme-purple {
+    background-color: rgba(204, 93, 232, 0.1);
+    border-color: #cc5de8;
+}
+.mindo-node.mindo-group.mindo-theme-black {
+    background-color: rgba(52, 58, 64, 0.05);
+    border-color: #343a40;
+}
+.theme-dark .mindo-node.mindo-group.mindo-theme-black {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: #ced4da;
+}
 
 .mindo-node:hover {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
+    box-shadow: 
+        0 20px 25px -5px rgba(0, 0, 0, 0.2), 
+        0 10px 10px -5px rgba(0, 0, 0, 0.1);
 }
 .mindo-node.selected {
-    box-shadow: 0 0 0 2px var(--interactive-accent, #3b82f6), 0 10px 15px -3px rgba(0, 0, 0, 0.1); /* blue ring + shadow */
+    box-shadow: 
+        0 0 0 2px var(--interactive-accent, #3b82f6), 
+        0 20px 25px -5px rgba(0, 0, 0, 0.25);
     z-index: 30; 
 }
 .mindo-node.mindo-group.selected {
@@ -255,66 +245,78 @@
     color: var(--text-normal, #e5e7eb); 
 }
 
-/* --- Color Themes --- */
-/* Yellow */
-.mindo-theme-yellow .mindo-node-header {
-    background-color: #fefce8; 
-    color: #713f12; 
-}
-.theme-dark .mindo-theme-yellow .mindo-node-header {
-    background-color: #423e2a;
-    color: #fef9c3;
-}
+/* --- Color Themes (Fresh & Bright Palette) --- */
 
-/* Green */
-.mindo-theme-green .mindo-node-header {
-    background-color: #f0fdf4; 
-    color: #14532d; 
-}
-.theme-dark .mindo-theme-green .mindo-node-header {
-    background-color: #1e3a29;
-    color: #dcfce7;
-}
-
-/* Blue */
-.mindo-theme-blue .mindo-node-header {
-    background-color: #eff6ff; 
-    color: #1e3a8a; 
-}
-.theme-dark .mindo-theme-blue .mindo-node-header {
-    background-color: #1e2a3a;
-    color: #dbeafe;
-}
-
-/* Purple */
-.mindo-theme-purple .mindo-node-header {
-    background-color: #faf5ff; 
-    color: #581c87; 
-}
-.theme-dark .mindo-theme-purple .mindo-node-header {
-    background-color: #34243e;
-    color: #f3e8ff;
-}
-
-/* Red */
-.mindo-theme-red .mindo-node-header {
-    background-color: #fef2f2; 
-    color: #7f1d1d; 
-}
-.theme-dark .mindo-theme-red .mindo-node-header {
-    background-color: #3e2424;
-    color: #fee2e2;
-}
-
-/* Gray */
+/* Gray / Neutral */
 .mindo-theme-gray .mindo-node-header {
-    background-color: #f3f4f6; 
-    color: #111827; 
+    background-color: #a3a3a3; 
+    color: #ffffff; 
 }
 .theme-dark .mindo-theme-gray .mindo-node-header {
-    background-color: var(--background-modifier-border, #374151);
-    color: var(--text-normal, #f3f4f6);
+    background-color: #525252;
+    color: #f5f5f5;
 }
+
+/* Red / Coral */
+.mindo-theme-red .mindo-node-header {
+    background-color: #ff6b6b; 
+    color: #ffffff; 
+}
+.theme-dark .mindo-theme-red .mindo-node-header {
+    background-color: #e03131;
+    color: #ffd43b;
+}
+
+/* Yellow / Vivid */
+.mindo-theme-yellow .mindo-node-header {
+    background-color: #fcc419; 
+    color: #ffffff; 
+}
+.theme-dark .mindo-theme-yellow .mindo-node-header {
+    background-color: #f59f00;
+    color: #ffffff;
+}
+
+/* Green / Fresh */
+.mindo-theme-green .mindo-node-header {
+    background-color: #51cf66; 
+    color: #ffffff; 
+}
+.theme-dark .mindo-theme-green .mindo-node-header {
+    background-color: #2f9e44;
+    color: #ffffff;
+}
+
+/* Blue / Sky */
+.mindo-theme-blue .mindo-node-header {
+    background-color: #4dabf7; 
+    color: #ffffff; 
+}
+.theme-dark .mindo-theme-blue .mindo-node-header {
+    background-color: #1971c2;
+    color: #ffffff;
+}
+
+/* Purple / Bright */
+.mindo-theme-purple .mindo-node-header {
+    background-color: #cc5de8; 
+    color: #ffffff; 
+}
+.theme-dark .mindo-theme-purple .mindo-node-header {
+    background-color: #9c36b5;
+    color: #ffffff;
+}
+
+/* Black / Dark */
+.mindo-theme-black .mindo-node-header {
+    background-color: #343a40; 
+    color: #ffffff; 
+}
+.theme-dark .mindo-theme-black .mindo-node-header {
+    background-color: #212529;
+    color: #f8f9fa;
+}
+
 
 /* --- Handles --- */
 .mindo-handle {
@@ -345,15 +347,6 @@
     transform: scale(1.25);
 }
 
-.mindo-handle-top { top: -0.4rem; left: 50%; transform: translateX(-50%); }
-.mindo-handle-top:hover { transform: translateX(-50%) scale(1.25); }
-.mindo-handle-right { top: 50%; right: -0.4rem; transform: translateY(-50%); }
-.mindo-handle-right:hover { transform: translateY(-50%) scale(1.25); }
-.mindo-handle-bottom { bottom: -0.4rem; left: 50%; transform: translateX(-50%); }
-.mindo-handle-bottom:hover { transform: translateX(-50%) scale(1.25); }
-.mindo-handle-left { top: 50%; left: -0.4rem; transform: translateY(-50%); }
-.mindo-handle-left:hover { transform: translateY(-50%) scale(1.25); }
-
 /* --- Node Toolbar (Delete/Color) --- */
 .mindo-node-tools {
     position: absolute;
@@ -366,14 +359,14 @@
     background-color: var(--background-primary);
     padding: 0.375rem;
     border-radius: 9999px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     border: none;
     z-index: 30;
     transform-origin: bottom;
 }
 .theme-dark .mindo-node-tools {
     background-color: var(--background-primary, #1f2937);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .mindo-group-tools {
@@ -386,7 +379,7 @@
     background-color: var(--background-primary);
     padding: 0.25rem;
     border-radius: 9999px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     border: none;
 }
 
@@ -419,283 +412,258 @@
     transform: scale(1.25);
 }
 
+/* Resize Handle */
 .mindo-resize-handle {
     position: absolute;
     bottom: 0;
     right: 0;
-    width: 1rem;
-    height: 1rem;
-    cursor: se-resize;
-    background-color: var(--background-modifier-border, #d1d5db);
-    border-top-left-radius: 0.5rem;
-    border-bottom-right-radius: 0.75rem;
-    opacity: 0;
-    transition: opacity 0.2s;
+    width: 1.5rem;
+    height: 1.5rem;
+    cursor: nwse-resize;
+    z-index: 20;
+    touch-action: none;
 }
-.mindo-node:hover .mindo-resize-handle {
-    opacity: 1;
+.mindo-resize-handle::after {
+    content: '';
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-right: 2px solid rgba(156, 163, 175, 0.5);
+    border-bottom: 2px solid rgba(156, 163, 175, 0.5);
 }
 
-/* --- Toolbar --- */
+/* Toolbar */
 .mindo-toolbar {
-    position: absolute; 
-    bottom: 1.5rem;
+    position: absolute;
+    bottom: 24px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    z-index: 50;
-    pointer-events: auto;
-    
     background-color: var(--background-primary);
-    padding: 0.5rem 1rem;
+    padding: 6px 12px;
     border-radius: 9999px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    border: 1px solid var(--background-modifier-border, transparent);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0,0,0,0.05);
+    z-index: 100;
+    gap: 8px;
 }
 .theme-dark .mindo-toolbar {
     background-color: var(--background-secondary);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-    border-color: var(--background-modifier-border);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1);
 }
 
 .mindo-toolbar-section {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 4px;
+    position: relative;
 }
 
 .mindo-toolbar-btn {
-    padding: 0.4rem;
-    border-radius: 0.5rem;
-    color: var(--text-muted, #6b7280);
-    background: transparent;
-    border: none;
-    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    border: none;
+    background: transparent;
+    color: var(--text-normal);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    padding: 0;
 }
 .mindo-toolbar-btn:hover:not(.disabled) {
-    background-color: var(--background-modifier-hover, #f3f4f6);
-    color: var(--text-normal);
+    background-color: var(--background-modifier-hover);
 }
 .mindo-toolbar-btn.disabled {
-    opacity: 0.4;
-    cursor: default;
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .mindo-toolbar-divider {
     width: 1px;
-    height: 1.25rem;
-    background-color: var(--background-modifier-border, #e5e7eb);
-    margin: 0 0.25rem;
-    display: none;
-}
-
-.mindo-select-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.375rem;
-}
-.mindo-select-container:hover {
-    background-color: var(--background-modifier-hover);
-}
-.mindo-select-label {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--text-normal);
-}
-.mindo-select-arrow {
-    margin-left: 2px;
-    color: var(--text-muted);
-}
-.mindo-hidden-select {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
+    height: 20px;
+    background-color: var(--background-modifier-border);
+    margin: 0 4px;
 }
 
 .mindo-ai-btn {
-    padding: 0.375rem 0.75rem;
-    border-radius: 9999px;
-    font-size: 0.875rem;
-    font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 6px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
     color: white;
-    background: linear-gradient(to right, #8b5cf6, #6366f1);
     border: none;
+    border-radius: 9999px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 2px 5px rgba(139, 92, 246, 0.3);
+    transition: filter 0.2s, transform 0.1s;
 }
 .mindo-ai-btn:hover:not(:disabled) {
+    filter: brightness(1.1);
     transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(139, 92, 246, 0.4);
 }
 .mindo-ai-btn:disabled {
-    background: var(--background-modifier-disabled);
-    color: var(--text-muted);
+    opacity: 0.7;
     cursor: not-allowed;
-    box-shadow: none;
+    background: var(--background-modifier-border);
+    color: var(--text-muted);
 }
+.mindo-ai-btn .animate-spin {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 .mindo-zoom-text {
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-muted);
-    min-width: 2.5rem;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    width: 36px;
     text-align: center;
-    user-select: none;
-    opacity: 0.8;
+    color: var(--text-muted);
 }
 
-/* --- Edge Menu (Properties Panel) --- */
-.mindo-edge-menu {
-    position: absolute;
-    z-index: 50;
-    top: 1.5rem; 
-    left: 50%;
-    transform: translateX(-50%);
-    
-    background-color: var(--background-primary);
-    backdrop-filter: blur(4px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    border: none;
-    border-radius: 0.75rem;
-    padding: 0.75rem;
+.mindo-select-container {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    
-    /* Ensure no wrapping on small screens */
-    width: fit-content;
-    max-width: 90vw; 
-    flex-wrap: nowrap;
+    gap: 2px;
+    cursor: pointer;
+    position: relative;
+    padding: 0 4px;
+}
+.mindo-hidden-select {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+}
+.mindo-select-label {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.mindo-select-arrow {
+    color: var(--text-muted);
+}
+
+/* Edge Menu - Repositioned to Top Center & Single Line Layout */
+.mindo-edge-menu {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--background-primary);
+    padding: 8px 12px;
+    border-radius: 9999px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    z-index: 90;
+    width: auto;
     white-space: nowrap;
+    max-width: 95vw;
     overflow-x: auto;
-    
-    /* Hide scrollbars */
+    /* Hide scrollbar */
     -ms-overflow-style: none;
     scrollbar-width: none;
-    
-    animation: slideDown 0.2s ease-out;
 }
 .mindo-edge-menu::-webkit-scrollbar {
     display: none;
 }
-.theme-dark .mindo-edge-menu {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
 
-.mindo-edge-menu-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-shrink: 0;
+.theme-dark .mindo-edge-menu {
+    background-color: var(--background-secondary);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1);
 }
 
 .mindo-edge-label-input {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    background-color: var(--background-secondary);
-    border-radius: 0.5rem;
-    padding: 0 0.5rem;
-    border: none;
-    width: 8rem;
+    gap: 6px;
+    background-color: var(--background-modifier-form-field);
+    padding: 4px 8px;
+    border-radius: 6px;
     flex-shrink: 0;
 }
 .mindo-edge-label-input input {
-    flex: 1;
-    font-size: 0.875rem;
     background: transparent;
     border: none;
     outline: none;
-    padding: 0.375rem 0;
+    width: 80px;
+    font-size: 14px;
     color: var(--text-normal);
-    min-width: 0; /* allows shrink */
+    padding: 2px 0;
+}
+.mindo-edge-label-input input:focus {
+    width: 120px;
+    transition: width 0.2s;
 }
 
 .mindo-edge-type-group {
     display: flex;
-    background-color: var(--background-secondary);
-    padding: 0.25rem;
-    border-radius: 0.5rem;
+    background-color: var(--background-modifier-form-field);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
     flex-shrink: 0;
 }
 .mindo-edge-type-btn {
-    padding: 0.25rem 0.5rem;
+    flex: 1;
     display: flex;
     justify-content: center;
     align-items: center;
-    border-radius: 0.375rem;
-    font-size: 0.75rem;
-    font-weight: 500;
+    padding: 4px;
+    border-radius: 4px;
     border: none;
-    cursor: pointer;
-    color: var(--text-muted);
     background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.mindo-edge-type-btn:hover {
+    color: var(--text-normal);
 }
 .mindo-edge-type-btn.active {
     background-color: var(--background-primary);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     color: var(--text-normal);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.mindo-edge-menu-row {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 .mindo-edge-action-btn {
     display: flex;
-    flex-direction: row; /* Icon + Text side by side for better compactness if text is short, or column if narrow? User wants 'single line layout' so row might be better but column takes less width per item. Keeping column but optimizing text. */
-    flex-direction: column; 
     align-items: center;
     justify-content: center;
-    padding: 0.5rem;
-    border-radius: 0.5rem;
-    color: var(--text-muted);
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--background-modifier-border);
     background: transparent;
-    border: none;
+    color: var(--text-normal);
+    font-size: 12px;
     cursor: pointer;
-    gap: 0.25rem;
-    flex-shrink: 0;
+    transition: background-color 0.2s;
+    white-space: nowrap;
 }
 .mindo-edge-action-btn:hover {
     background-color: var(--background-modifier-hover);
 }
 .mindo-edge-action-btn.delete {
     color: var(--text-error);
+    border-color: rgba(239, 68, 68, 0.2);
 }
 .mindo-edge-action-btn.delete:hover {
     background-color: rgba(239, 68, 68, 0.1);
-}
-.mindo-edge-action-btn span {
-    font-size: 10px;
-    font-weight: 500;
-    text-align: center;
-    width: 100%;
-    line-height: 1;
-}
-
-/* Animations */
-@keyframes slideDown {
-    from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-    to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-
-.animate-spin {
-    animation: spin 1s linear infinite;
-}
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
 }

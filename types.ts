@@ -9,7 +9,7 @@ export interface Size {
   height: number;
 }
 
-export type NodeColor = 'yellow' | 'green' | 'blue' | 'purple' | 'red' | 'gray';
+export type NodeColor = 'yellow' | 'green' | 'blue' | 'purple' | 'red' | 'gray' | 'black';
 export type HandlePosition = 'top' | 'right' | 'bottom' | 'left';
 export type EdgeStyle = 'solid' | 'dashed' | 'dotted';
 export type EdgeArrow = 'none' | 'to' | 'from' | 'both';
@@ -58,41 +58,36 @@ export interface ViewportTransform {
   scale: number;
 }
 
-export const NODE_STYLES: Record<NodeColor, { className: string; picker: string }> = {
-  yellow: { 
-      className: 'mindo-theme-yellow',
-      picker: '#facc15'
-  },
-  green: { 
-      className: 'mindo-theme-green',
-      picker: '#4ade80'
-  },
-  blue: { 
-      className: 'mindo-theme-blue',
-      picker: '#60a5fa'
-  },
-  purple: { 
-      className: 'mindo-theme-purple',
-      picker: '#c084fc'
-  },
-  red: { 
-      className: 'mindo-theme-red',
-      picker: '#f87171'
-  },
-  gray: { 
-      className: 'mindo-theme-gray',
-      picker: '#9ca3af'
-  },
+// Unified Color Definitions (Fresh & Bright Palette)
+const PALETTE_DEF = {
+    gray:   { hex: '#a3a3a3', className: 'mindo-theme-gray' },   // Neutral Gray
+    red:    { hex: '#ff6b6b', className: 'mindo-theme-red' },    // Fresh Coral
+    yellow: { hex: '#fcc419', className: 'mindo-theme-yellow' }, // Vivid Yellow/Orange
+    green:  { hex: '#51cf66', className: 'mindo-theme-green' },  // Fresh Green
+    blue:   { hex: '#4dabf7', className: 'mindo-theme-blue' },   // Fresh Sky Blue
+    purple: { hex: '#cc5de8', className: 'mindo-theme-purple' }, // Fresh Purple
+    black:  { hex: '#343a40', className: 'mindo-theme-black' },  // Dark Slate
 };
 
-export const COLOR_PALETTE: NodeColor[] = ['yellow', 'green', 'blue', 'purple', 'red', 'gray'];
+export const NODE_STYLES: Record<NodeColor, { className: string; picker: string }> = {
+  gray:   { className: PALETTE_DEF.gray.className,   picker: PALETTE_DEF.gray.hex },
+  red:    { className: PALETTE_DEF.red.className,    picker: PALETTE_DEF.red.hex },
+  yellow: { className: PALETTE_DEF.yellow.className, picker: PALETTE_DEF.yellow.hex },
+  green:  { className: PALETTE_DEF.green.className,  picker: PALETTE_DEF.green.hex },
+  blue:   { className: PALETTE_DEF.blue.className,   picker: PALETTE_DEF.blue.hex },
+  purple: { className: PALETTE_DEF.purple.className, picker: PALETTE_DEF.purple.hex },
+  black:  { className: PALETTE_DEF.black.className,  picker: PALETTE_DEF.black.hex },
+};
 
+export const COLOR_PALETTE: NodeColor[] = ['gray', 'red', 'yellow', 'green', 'blue', 'purple', 'black'];
+
+// Ensure Edge Colors match the Node Palette exactly
 export const EDGE_COLORS = [
-    '#94a3b8', // Slate (Default)
-    '#ef4444', // Red
-    '#f59e0b', // Amber
-    '#10b981', // Emerald
-    '#3b82f6', // Blue
-    '#8b5cf6', // Violet
-    '#171717', // Black
+    PALETTE_DEF.gray.hex,
+    PALETTE_DEF.red.hex,
+    PALETTE_DEF.yellow.hex,
+    PALETTE_DEF.green.hex,
+    PALETTE_DEF.blue.hex,
+    PALETTE_DEF.purple.hex,
+    PALETTE_DEF.black.hex,
 ];

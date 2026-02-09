@@ -5,7 +5,7 @@ import { generateId, screenToWorld, getHandlePosition, getNearestHandle, getCent
 import { NodeComponent } from './components/NodeComponent';
 import { EdgeComponent, EdgeMenu } from './components/EdgeComponent';
 import { Toolbar } from './components/Toolbar';
-import { expandIdea } from './services/aiService';
+import { expandIdea, AiResult } from './services/aiService';
 import * as htmlToImage from 'html-to-image';
 import './styles.css';
 
@@ -19,7 +19,7 @@ interface AppProps {
 }
 
 const DEFAULT_INITIAL_NODES: MindMapNode[] = [
-  { id: 'root', title: 'Mindo', content: '中心主题', x: 0, y: 0, width: 200, height: 100, color: 'yellow' }
+  { id: 'root', title: 'Mindo', content: '中心主题', x: 0, y: 0, width: 150, height: 100, color: 'yellow' }
 ];
 
 const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onShowMessage, onRenderMarkdown }) => {
@@ -107,7 +107,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     if ((!initialData || !initialData.nodes) && containerRef.current && !hasCentered.current) {
         const { clientWidth, clientHeight } = containerRef.current;
         setTransform({
-            x: clientWidth / 2 - 100,
+            x: clientWidth / 2 - 150, // Adjusted for new width
             y: clientHeight / 2 - 50,
             scale: 1
         });
@@ -191,9 +191,9 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
       id: generateId(),
       title: '新节点',
       content: '',
-      x: worldPos.x - 100,
+      x: worldPos.x - 50, 
       y: worldPos.y - 40,
-      width: 200,
+      width: 100, 
       height: 80, 
       color: 'blue',
       type: 'node'
@@ -773,12 +773,23 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   }, [selectedNodeIds, selectedEdgeId]);
 
   const handleAiExpand = async () => {
-    if (selectedNodeIds.size !== 1 || isAiLoading) return;
+    // Explicit feedback for better UX
+    if (selectedNodeIds.size === 0) {
+        if(onShowMessage) onShowMessage("请先选中一个主题节点以进行 AI 扩展。");
+        return;
+    }
+    if (selectedNodeIds.size > 1) {
+        if(onShowMessage) onShowMessage("AI 扩展仅支持单个节点。");
+        return;
+    }
+    if (isAiLoading) return;
+
     const selectedId = Array.from(selectedNodeIds)[0];
-    
     const node = nodes.find(n => n.id === selectedId);
+    
     if (!node || !node.title.trim()) {
-      return;
+        if(onShowMessage) onShowMessage("节点标题不能为空。");
+        return;
     }
 
     if (!settings.aiApiKey) {
@@ -792,25 +803,25 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
 
     setIsAiLoading(true);
     try {
-      const suggestions = await expandIdea(node.title, settings);
+      const suggestions: AiResult[] = await expandIdea(node.title, settings);
       
       const newNodes: MindMapNode[] = [];
       const newEdges: MindMapEdge[] = [];
       const radius = 350; 
       
-      suggestions.forEach((text, index) => {
+      suggestions.forEach((item, index) => {
         const fanAngle = (index - (suggestions.length - 1) / 2) * (Math.PI / 4); 
 
         const newNodeId = generateId();
         newNodes.push({
           id: newNodeId,
           type: 'node',
-          title: text,
-          content: '',
+          title: item.title,
+          content: item.content, 
           x: node.x + radius * Math.cos(fanAngle) + 100, 
           y: node.y + radius * Math.sin(fanAngle),
-          width: 200,
-          height: 80, 
+          width: 120, // Reduced from 240
+          height: 120, 
           color: node.color === 'gray' ? 'blue' : node.color,
           parentId: node.id
         });
@@ -1067,7 +1078,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         }}
         onReset={() => { 
             if (containerRef.current) {
-                 setTransform({ x: containerRef.current.clientWidth/2 - 100, y: containerRef.current.clientHeight/2 - 50, scale: 1 });
+                 setTransform({ x: containerRef.current.clientWidth/2 - 150, y: containerRef.current.clientHeight/2 - 50, scale: 1 });
             }
         }}
         onAiExpand={handleAiExpand}
@@ -1077,6 +1088,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         isAiLoading={isAiLoading}
         canGroup={selectedNodeIds.size > 1}
         canAlign={selectedNodeIds.size > 1}
+        hasSingleSelection={selectedNodeIds.size === 1}
       />
     </div>
   );

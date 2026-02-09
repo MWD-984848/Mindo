@@ -2,12 +2,23 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { MindoSettings } from '../types';
 
-export const expandIdea = async (topic: string, settings: MindoSettings): Promise<string[]> => {
+export interface AiResult {
+    title: string;
+    content: string;
+}
+
+export const expandIdea = async (topic: string, settings: MindoSettings): Promise<AiResult[]> => {
   if (!settings.aiApiKey) {
       throw new Error("缺少 API Key，请在 Mindo 设置中配置。");
   }
 
-  const prompt = `为思维导图节点 "${topic}" 生成 4 个简洁、独特且有创意的子主题。仅返回一个 JSON 字符串数组，例如：["想法 1", "想法 2", "想法 3", "想法 4"]。保持简短（5个字以内）。不要使用 markdown 代码块。`;
+  const prompt = `作为思维导图专家，请深入挖掘主题 "${topic}"，生成 4 个具有深度、多维度的子主题。
+  请返回一个严格的 JSON 对象数组（Array），不要包含任何 Markdown 格式（如 \`\`\`json）。
+  每个对象包含以下字段：
+  - "title": 子主题标题（简练概括，15字以内）。
+  - "content": 对该子主题的详细描述、关键点或延伸解释（50-80字，可分点描述）。
+  
+  示例格式：[{"title": "概念定义", "content": "..."}]`;
 
   try {
     if (settings.aiProvider === 'gemini') {
@@ -22,7 +33,12 @@ export const expandIdea = async (topic: string, settings: MindoSettings): Promis
             responseSchema: {
               type: Type.ARRAY,
               items: {
-                type: Type.STRING
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  content: { type: Type.STRING }
+                },
+                required: ["title", "content"]
               }
             }
           }
@@ -31,20 +47,18 @@ export const expandIdea = async (topic: string, settings: MindoSettings): Promis
         if (response.text) {
           const ideas = JSON.parse(response.text);
           if (Array.isArray(ideas)) {
-            return ideas.slice(0, 4);
+            return ideas.slice(0, 4).map((item: any) => ({
+                title: item.title || "未命名",
+                content: item.content || ""
+            }));
           }
         }
 
     } else {
         // --- OpenAI Compatible Implementation (DeepSeek, OpenAI, etc) ---
         let baseUrl = settings.aiBaseUrl || 'https://api.openai.com/v1';
-        // Ensure proper format for chat completions
         if (!baseUrl.endsWith('/chat/completions')) {
-             // Remove trailing slash if present
              if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
-             // If it doesn't end with /v1 or similar, we might need to be careful, but generally append /chat/completions
-             // DeepSeek base is https://api.deepseek.com -> needs /chat/completions
-             // OpenAI base is https://api.openai.com/v1 -> needs /chat/completions
              baseUrl = `${baseUrl}/chat/completions`;
         }
 
@@ -57,7 +71,7 @@ export const expandIdea = async (topic: string, settings: MindoSettings): Promis
             body: JSON.stringify({
                 model: settings.aiModel || 'deepseek-chat',
                 messages: [
-                    { role: "system", content: "你是一个帮助头脑风暴思维导图创意的助手。请只回复 JSON 格式。" },
+                    { role: "system", content: "你是一个专业的思维导图助手，擅长深度拆解问题。请直接返回 JSON 数组格式的数据。" },
                     { role: "user", content: prompt }
                 ],
                 stream: false,
@@ -74,18 +88,26 @@ export const expandIdea = async (topic: string, settings: MindoSettings): Promis
         const content = data.choices?.[0]?.message?.content;
         
         if (content) {
-            // Cleanup: sometimes models add markdown code blocks even if told not to
-            const cleanContent = content.replace(/```json/g, '').replace(/```/g, '').trim();
-            const ideas = JSON.parse(cleanContent);
-            if (Array.isArray(ideas)) {
-                return ideas.slice(0, 4);
+            // Improved regex to handle various markdown code block formats (e.g. ```json, ```JSON, or just ```)
+            const cleanContent = content.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+            try {
+                const ideas = JSON.parse(cleanContent);
+                if (Array.isArray(ideas)) {
+                    return ideas.slice(0, 4).map((item: any) => ({
+                        title: typeof item === 'string' ? item : (item.title || "未命名"),
+                        content: typeof item === 'string' ? "" : (item.content || "")
+                    }));
+                }
+            } catch (e) {
+                console.error("Failed to parse JSON from AI response:", cleanContent);
+                throw new Error("AI 返回的数据格式不正确，无法解析。");
             }
         }
     }
 
-    return [`关于 ${topic} 的更多内容`];
+    return [{ title: `关于 ${topic} 的更多内容`, content: "AI 未返回有效数据。" }];
   } catch (error) {
     console.error("AI Generation failed:", error);
-    throw error; // Re-throw to handle in UI
+    throw error;
   }
 };

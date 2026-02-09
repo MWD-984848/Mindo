@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
-import { MindMapNode, NODE_STYLES, NodeColor, HandlePosition } from '../types';
+import { MindMapNode, NODE_STYLES, NodeColor, HandlePosition, COLOR_PALETTE } from '../types';
 import { Trash2 } from 'lucide-react';
 
 interface NodeComponentProps {
@@ -41,7 +41,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
   const nodeRef = useRef<HTMLDivElement>(null);
   const markdownRef = useRef<HTMLDivElement>(null);
 
-  const themeClass = NODE_STYLES[node.color].className;
+  const themeClass = NODE_STYLES[node.color]?.className || NODE_STYLES['gray'].className;
   const isGroup = node.type === 'group';
   const isImage = node.type === 'image';
 
@@ -156,7 +156,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
       const handleMouseMove = (mv: MouseEvent) => {
           const dx = (mv.clientX - startX) / scale;
           const dy = (mv.clientY - startY) / scale;
-          onResize(node.id, Math.max(100, startWidth + dx), Math.max(50, startHeight + dy));
+          onResize(node.id, Math.max(50, startWidth + dx), Math.max(50, startHeight + dy));
       };
 
       const handleMouseUp = () => {
@@ -234,7 +234,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
                     <button onClick={(e) => { stopProp(e); onDelete(node.id); }} className="mindo-tool-btn">
                         <Trash2 size={14} />
                     </button>
-                    {(['yellow', 'green', 'blue', 'gray'] as NodeColor[]).map((c) => (
+                    {COLOR_PALETTE.map((c) => (
                         <button
                         key={c}
                         onClick={(e) => { stopProp(e); onColorChange(node.id, c); }}
@@ -346,7 +346,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
             <Trash2 size={14} />
           </button>
           <div style={{ width: 1, height: '1rem', backgroundColor: '#e5e7eb', margin: '0 0.25rem' }} />
-          {(['yellow', 'green', 'blue', 'red', 'purple', 'gray'] as NodeColor[]).map((c) => (
+          {COLOR_PALETTE.map((c) => (
             <button
               key={c}
               onClick={(e) => { stopProp(e); onColorChange(node.id, c); }}
