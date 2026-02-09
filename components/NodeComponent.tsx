@@ -13,6 +13,7 @@ interface NodeComponentProps {
   onConnectEnd: (e: React.MouseEvent, nodeId: string, handle: HandlePosition) => void;
   onUpdate: (id: string, title: string, content: string) => void;
   onResize: (id: string, width: number, height: number) => void;
+  onResizeStart?: () => void; // New prop for Undo
   onDelete: (id: string) => void;
   onColorChange: (id: string, color: NodeColor) => void;
   scale: number;
@@ -29,6 +30,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
   onConnectEnd,
   onUpdate,
   onResize,
+  onResizeStart,
   onDelete,
   onColorChange,
   scale,
@@ -148,6 +150,10 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
   const handleResizeMouseDown = (e: React.MouseEvent) => {
       e.stopPropagation();
       e.preventDefault();
+      
+      // Notify parent to save history state before resizing starts
+      if (onResizeStart) onResizeStart();
+
       const startX = e.clientX;
       const startY = e.clientY;
       const startWidth = node.width;

@@ -347,6 +347,19 @@
     transform: scale(1.25);
 }
 
+.mindo-handle-top { top: -0.4rem; left: 50%; transform: translateX(-50%); }
+.mindo-handle-top:hover { transform: translateX(-50%) scale(1.25); }
+
+.mindo-handle-right { top: 50%; right: -0.4rem; transform: translateY(-50%); }
+.mindo-handle-right:hover { transform: translateY(-50%) scale(1.25); }
+
+.mindo-handle-bottom { bottom: -0.4rem; left: 50%; transform: translateX(-50%); }
+.mindo-handle-bottom:hover { transform: translateX(-50%) scale(1.25); }
+
+.mindo-handle-left { top: 50%; left: -0.4rem; transform: translateY(-50%); }
+.mindo-handle-left:hover { transform: translateY(-50%) scale(1.25); }
+
+
 /* --- Node Toolbar (Delete/Color) --- */
 .mindo-node-tools {
     position: absolute;
@@ -666,4 +679,36 @@
 }
 .mindo-edge-action-btn.delete:hover {
     background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Edge Label Styling */
+.mindo-edge-label {
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    
+    /* Removed shadow for cleaner look as requested */
+    box-shadow: none; 
+    
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    pointer-events: auto;
+    cursor: pointer;
+    
+    display: inline-block;
+    transition: transform 0.1s;
+}
+.theme-dark .mindo-edge-label {
+    background-color: var(--background-primary); 
+    box-shadow: none;
+}
+.mindo-edge-label:hover {
+    transform: scale(1.05);
+    box-shadow: none;
 }

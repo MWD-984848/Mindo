@@ -205,7 +205,16 @@ export const getBezierMidpoint = (
         return { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
     }
     
-    if (breakpoints.length > 0) {
+    // Correct logic for single control point (Quadratic Bezier)
+    if (breakpoints.length === 1) {
+        const t = 0.5;
+        const cp = breakpoints[0];
+        const x = (1 - t) * (1 - t) * start.x + 2 * (1 - t) * t * cp.x + t * t * end.x;
+        const y = (1 - t) * (1 - t) * start.y + 2 * (1 - t) * t * cp.y + t * t * end.y;
+        return { x, y };
+    }
+
+    if (breakpoints.length > 1) {
         const midIdx = Math.floor(breakpoints.length / 2);
         const p1 = breakpoints[midIdx];
         const p2 = breakpoints[midIdx + 1] || end;

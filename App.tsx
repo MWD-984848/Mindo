@@ -22,12 +22,21 @@ const DEFAULT_INITIAL_NODES: MindMapNode[] = [
   { id: 'root', title: 'Mindo', content: '中心主题', x: 0, y: 0, width: 150, height: 100, color: 'yellow' }
 ];
 
+interface HistoryState {
+    nodes: MindMapNode[];
+    edges: MindMapEdge[];
+}
+
 const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onShowMessage, onRenderMarkdown }) => {
   // --- State ---
   const [nodes, setNodes] = useState<MindMapNode[]>(initialData?.nodes || DEFAULT_INITIAL_NODES);
   const [edges, setEdges] = useState<MindMapEdge[]>(initialData?.edges || []);
   const [transform, setTransform] = useState<ViewportTransform>(initialData?.transform || { x: 0, y: 0, scale: 1 });
   
+  // History State
+  const [past, setPast] = useState<HistoryState[]>([]);
+  const [future, setFuture] = useState<HistoryState[]>([]);
+
   // Selection
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
@@ -131,6 +140,39 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   }, [nodes, edges, transform, onSave]);
 
 
+  // --- History Management ---
+  const saveHistory = useCallback(() => {
+      setPast(prev => [...prev, { nodes, edges }]);
+      setFuture([]);
+  }, [nodes, edges]);
+
+  const undo = useCallback(() => {
+      if (past.length === 0) return;
+      
+      const previous = past[past.length - 1];
+      const newPast = past.slice(0, past.length - 1);
+      
+      setFuture(prev => [{ nodes, edges }, ...prev]);
+      
+      setNodes(previous.nodes);
+      setEdges(previous.edges);
+      setPast(newPast);
+  }, [past, nodes, edges]);
+
+  const redo = useCallback(() => {
+      if (future.length === 0) return;
+      
+      const next = future[0];
+      const newFuture = future.slice(1);
+      
+      setPast(prev => [...prev, { nodes, edges }]);
+      
+      setNodes(next.nodes);
+      setEdges(next.edges);
+      setFuture(newFuture);
+  }, [future, nodes, edges]);
+
+
   // --- Handlers ---
   const handleWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
@@ -182,6 +224,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   };
 
   const handleDoubleClickCanvas = (e: React.MouseEvent) => {
+    saveHistory(); // History: Node Add
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     
@@ -204,6 +247,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   };
 
   const processImageFile = (file: File, x: number, y: number, index: number) => {
+    // History saved in handlePaste before calling this loop, or handle here per image
     const reader = new FileReader();
     reader.onload = (ev) => {
         const result = ev.target?.result as string;
@@ -248,12 +292,14 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         }
 
         if (e.clipboardData && e.clipboardData.files.length > 0) {
-            e.preventDefault();
             const files = Array.from(e.clipboardData.files) as File[];
             const imageFiles = files.filter(f => f.type.startsWith('image/'));
             
             if (imageFiles.length === 0) return;
             
+            e.preventDefault();
+            saveHistory(); // History: Image Paste
+
             const rect = containerRef.current?.getBoundingClientRect();
             if (!rect) return;
             
@@ -269,10 +315,11 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, []); 
+  }, [saveHistory]); 
 
   const handleCreateGroup = () => {
     if (selectedNodeIds.size === 0) return;
+    saveHistory(); // History: Create Group
 
     const selectedNodes = nodes.filter(n => selectedNodeIds.has(n.id));
     if (selectedNodes.length === 0) return;
@@ -357,7 +404,8 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
 
   const handleAlign = (direction: 'horizontal' | 'vertical') => {
     if (selectedNodeIds.size < 2) return;
-    
+    saveHistory(); // History: Align
+
     const selectedNodes = nodes.filter(n => selectedNodeIds.has(n.id));
     if (selectedNodes.length === 0) return;
 
@@ -409,7 +457,8 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     const node = nodes.find(n => n.id === id);
     if (node) {
       dragStartRef.current = { x: e.clientX, y: e.clientY };
-      initialNodesRef.current = nodes; // Snapshot for drag delta
+      // Store current state in ref to potentially save to history on drag end
+      initialNodesRef.current = nodes; 
 
       if (node.type === 'group') {
           const children = nodes.filter(n => n.parentId === id);
@@ -470,6 +519,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         );
   
         if (!exists) {
+          saveHistory(); // History: New Connection
           const newEdge: MindMapEdge = {
               id: generateId(),
               from: connectionStart.nodeId,
@@ -618,6 +668,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
 
     // Finishing reconnection
     if (reconnectingEdge && snapPreview) {
+        saveHistory(); // History: Edge Reconnect
         setEdges(prev => prev.map(e => {
             if (e.id === reconnectingEdge.edgeId) {
                 if (reconnectingEdge.which === 'from') {
@@ -631,6 +682,19 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     }
 
     if (draggingNodeId) {
+        // Check if nodes actually moved to save history
+        const hasMoved = nodes.some(n => {
+             const init = initialNodesRef.current.find(i => i.id === n.id);
+             return init && (init.x !== n.x || init.y !== n.y);
+        });
+
+        if (hasMoved) {
+            // Push the *previous* state (before drag) to history
+            // current nodes state is the "new" state
+            setPast(prev => [...prev, { nodes: initialNodesRef.current, edges }]); 
+            setFuture([]);
+        }
+
         setNodes(prev => {
             const isDraggingSelection = selectedNodeIds.has(draggingNodeId);
             const nodesToCheck = isDraggingSelection ? Array.from(selectedNodeIds) : [draggingNodeId];
@@ -723,6 +787,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   };
 
   const updateNodeData = (id: string, title: string, content: string) => {
+    saveHistory(); // History: Edit Text
     setNodes(prev => prev.map(n => n.id === id ? { ...n, title, content } : n));
   };
   
@@ -731,6 +796,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   };
 
   const updateNodeColor = (id: string, color: NodeColor) => {
+    saveHistory(); // History: Change Color
     setNodes(prev => prev.map(n => n.id === id ? { ...n, color } : n));
   };
 
@@ -739,6 +805,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   };
 
   const deleteNode = (id: string) => {
+    saveHistory(); // History: Delete Node
     setNodes(prev => prev.filter(n => n.id !== id));
     setEdges(prev => prev.filter(edge => edge.from !== id && edge.to !== id));
     if (selectedNodeIds.has(id)) {
@@ -749,6 +816,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   };
   
   const deleteSelected = () => {
+      saveHistory(); // History: Delete Selection
       if (selectedNodeIds.size > 0) {
           setNodes(prev => prev.filter(n => !selectedNodeIds.has(n.id)));
           setEdges(prev => prev.filter(e => !selectedNodeIds.has(e.from) && !selectedNodeIds.has(e.to)));
@@ -767,10 +835,24 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
               if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
               deleteSelected();
           }
+
+          // Undo / Redo
+          if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+              if (e.shiftKey) {
+                  redo();
+              } else {
+                  undo();
+              }
+              e.preventDefault();
+          }
+          if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
+              redo();
+              e.preventDefault();
+          }
       };
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNodeIds, selectedEdgeId]);
+  }, [selectedNodeIds, selectedEdgeId, undo, redo, deleteSelected]);
 
   const handleAiExpand = async () => {
     // Explicit feedback for better UX
@@ -805,6 +887,8 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     try {
       const suggestions: AiResult[] = await expandIdea(node.title, settings);
       
+      saveHistory(); // History: AI Expand
+
       const newNodes: MindMapNode[] = [];
       const newEdges: MindMapEdge[] = [];
       const radius = 350; 
@@ -912,6 +996,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
               onConnectEnd={handleConnectEnd}
               onUpdate={updateNodeData}
               onResize={updateNodeResize}
+              onResizeStart={saveHistory} // Save history before resize
               onDelete={deleteNode}
               onColorChange={updateNodeColor}
               onRenderMarkdown={onRenderMarkdown}
@@ -933,8 +1018,9 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                   targetNode={target}
                   isSelected={selectedEdgeId === edge.id}
                   onSelect={handleEdgeSelect}
-                  onDelete={() => setEdges(prev => prev.filter(e => e.id !== edge.id))}
+                  onDelete={() => { saveHistory(); setEdges(prev => prev.filter(e => e.id !== edge.id)); }}
                   onUpdate={updateEdge}
+                  onInteractStart={saveHistory} // Save history before dragging breakpoints/control points
                   transform={transform}
                 />
               );
@@ -955,6 +1041,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
               onConnectEnd={handleConnectEnd}
               onUpdate={updateNodeData}
               onResize={updateNodeResize}
+              onResizeStart={saveHistory} // Save history before resize
               onDelete={deleteNode}
               onColorChange={updateNodeColor}
               onRenderMarkdown={onRenderMarkdown}
@@ -1058,8 +1145,14 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
       {selectedEdgeId && selectedEdgeObj && (
           <EdgeMenu 
               edge={selectedEdgeObj} 
-              onUpdate={updateEdge}
-              onDelete={() => setEdges(prev => prev.filter(e => e.id !== selectedEdgeObj.id))}
+              onUpdate={(id, updates) => {
+                  saveHistory(); // History: Edge Update via Menu
+                  updateEdge(id, updates);
+              }}
+              onDelete={(id) => {
+                  saveHistory(); // History: Edge Delete via Menu
+                  setEdges(prev => prev.filter(e => e.id !== selectedEdgeObj.id));
+              }}
           />
       )}
 

@@ -12,6 +12,7 @@ interface EdgeComponentProps {
   onSelect: (e: React.MouseEvent, id: string) => void;
   onDelete: (id: string) => void;
   onUpdate: (id: string, updates: Partial<MindMapEdge>) => void;
+  onInteractStart?: () => void; // For Undo History
   transform: ViewportTransform;
 }
 
@@ -23,6 +24,7 @@ export const EdgeComponent: React.FC<EdgeComponentProps> = ({
   onSelect,
   onDelete,
   onUpdate,
+  onInteractStart,
   transform
 }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -134,6 +136,8 @@ export const EdgeComponent: React.FC<EdgeComponentProps> = ({
       e.stopPropagation();
       e.preventDefault();
       
+      if(onInteractStart) onInteractStart();
+
       const startX = e.clientX;
       const startY = e.clientY;
       const initialPoint = breakpoints[index];
@@ -162,6 +166,8 @@ export const EdgeComponent: React.FC<EdgeComponentProps> = ({
 
   const handleDoubleClickLine = (e: React.MouseEvent) => {
       e.stopPropagation();
+      if(onInteractStart) onInteractStart();
+      
       const worldPos = screenToWorld({ x: e.clientX, y: e.clientY }, transform);
       const newType = edge.type === 'step' ? 'straight' : (edge.type || 'bezier');
       
@@ -174,6 +180,8 @@ export const EdgeComponent: React.FC<EdgeComponentProps> = ({
 
   const handleDoubleClickBreakpoint = (e: React.MouseEvent, index: number) => {
       e.stopPropagation();
+      if(onInteractStart) onInteractStart();
+
       const newBreakpoints = breakpoints.filter((_, i) => i !== index);
       onUpdate(edge.id, { breakpoints: newBreakpoints });
   };
@@ -219,35 +227,28 @@ export const EdgeComponent: React.FC<EdgeComponentProps> = ({
         {/* Label */}
         {edge.label && (
              <foreignObject 
-                x={midPoint.x - 60} 
-                y={midPoint.y - 14} 
-                width="120" 
-                height="28"
+                x={midPoint.x} 
+                y={midPoint.y} 
+                width="1" 
+                height="1"
                 style={{ overflow: 'visible', pointerEvents: 'none' }}
             >
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }}>
-                    <span 
-                        style={{ 
-                            backgroundColor: 'rgba(255,255,255,0.95)', 
-                            padding: '2px 8px', 
-                            borderRadius: '4px', 
-                            fontSize: '12px', 
-                            fontWeight: 600, 
-                            color: strokeColor, 
-                            borderColor: strokeColor,
-                            borderWidth: 1,
-                            borderStyle: 'solid',
-                            pointerEvents: 'auto',
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            maxWidth: '120px'
-                        }}
+                <div style={{
+                    transform: 'translate(-50%, -50%)',
+                    width: 'max-content',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    pointerEvents: 'auto' // Re-enable pointer events for the label itself
+                }}>
+                    <div 
+                        className="mindo-edge-label"
                         onMouseDown={(e) => onSelect(e, edge.id)}
+                        style={{
+                            borderColor: strokeColor // Optional: match border to line color if you want, or keep default
+                        }}
                     >
                         {edge.label}
-                    </span>
+                    </div>
                 </div>
              </foreignObject>
         )}
