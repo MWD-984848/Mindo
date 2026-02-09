@@ -4,8 +4,8 @@
 	"name": "Mindo",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "An infinite canvas mind mapping tool powered by Gemini.",
-	"author": "You",
+	"description": "无限画布思维导图工具.",
+	"author": "马可菠萝",
 	"authorUrl": "",
 	"isDesktopOnly": false
 }
