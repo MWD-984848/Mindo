@@ -66,7 +66,7 @@ export class MindoView extends TextFileView {
         // @ts-ignore - access internal plugin list to find our instance settings
         const app = (this as any).app;
         const plugin = (app as any).plugins.getPlugin('mindo') as MindoPlugin;
-        return plugin?.settings || { aiProvider: 'gemini', aiBaseUrl: '', aiApiKey: '', aiModel: 'gemini-2.0-flash' };
+        return plugin?.settings || { aiProvider: 'gemini', aiBaseUrl: '', aiApiKey: '', aiModel: 'gemini-2.0-flash', imageSaveLocation: 'obsidian', imageFolderPath: 'Mindo Assets' };
     }
 
     renderMarkdown = (content: string, el: HTMLElement) => {
@@ -80,36 +80,76 @@ export class MindoView extends TextFileView {
     // Save pasted image to vault
     handleSaveAsset = async (file: File): Promise<string> => {
         const app = (this as any).app;
+        // @ts-ignore
+        const currentFile = (this as any).file as TFile;
+        const sourcePath = currentFile ? currentFile.path : '/';
+        const settings = this.getSettings();
+
         const arrayBuffer = await file.arrayBuffer();
         
-        // Determine path: use attachments folder setting if possible, else root
-        // Obsidian API to get attachments folder is app.vault.getAvailablePathForAttachments or similar, 
-        // but often manual handling is needed. Let's stick to root or a specific assets folder for simplicity
-        // or just next to the current file?
-        // Standard Obsidian behavior: create in root or designated attachment folder.
-        // We will simple create it in the root or a 'Attachments' folder if it exists, or just root.
-        
-        // Actually, let's try to get a unique path.
         const fileName = file.name;
         // Normalize filename
         let safeName = fileName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
         if (!safeName) safeName = 'image.png';
 
-        // Get available path to avoid collision
-        // We use app.vault.getAvailablePath which is not explicitly typed in all versions but usually available, 
-        // or check manually.
-        let path = safeName;
-        let i = 1;
-        while (app.vault.getAbstractFileByPath(path)) {
-            const parts = safeName.split('.');
-            const ext = parts.pop();
-            const base = parts.join('.');
-            path = `${base}_${i}.${ext}`;
-            i++;
-        }
+        if (settings.imageSaveLocation === 'folder') {
+            // --- Custom Folder Logic ---
+            let folderPath = settings.imageFolderPath || 'Mindo Assets';
+            
+            // Ensure folder exists
+            if (!app.vault.getAbstractFileByPath(folderPath)) {
+                await app.vault.createFolder(folderPath);
+            }
 
-        await app.vault.createBinary(path, arrayBuffer);
-        return path;
+            // Handle filename collision
+            let finalPath = `${folderPath}/${safeName}`;
+            
+            // If file exists, append number
+            if (app.vault.getAbstractFileByPath(finalPath)) {
+                const namePart = safeName.lastIndexOf('.') !== -1 ? safeName.substring(0, safeName.lastIndexOf('.')) : safeName;
+                const extPart = safeName.lastIndexOf('.') !== -1 ? safeName.substring(safeName.lastIndexOf('.')) : '';
+                
+                let i = 1;
+                while (app.vault.getAbstractFileByPath(`${folderPath}/${namePart} ${i}${extPart}`)) {
+                    i++;
+                }
+                finalPath = `${folderPath}/${namePart} ${i}${extPart}`;
+            }
+
+            await app.vault.createBinary(finalPath, arrayBuffer);
+            return finalPath;
+
+        } else {
+            // --- Obsidian Default Logic ---
+            // Use Obsidian's API to determine the correct attachment path based on user settings
+            const newPath = await app.fileManager.getAvailablePathForAttachment(safeName, sourcePath);
+            await app.vault.createBinary(newPath, arrayBuffer);
+            return newPath;
+        }
+    }
+    
+    handleRenameAsset = async (oldPath: string, newName: string): Promise<string> => {
+        const app = (this as any).app;
+        const file = app.vault.getAbstractFileByPath(oldPath);
+        if (!file) throw new Error("File not found");
+
+        const parentPath = file.parent ? file.parent.path : '/';
+        const extension = file.extension;
+
+        // Ensure extension is preserved/added
+        let safeName = newName;
+        // Basic sanitization
+        safeName = safeName.replace(/[\\/:*?"<>|]/g, '_');
+        
+        if (!safeName.toLowerCase().endsWith(`.${extension}`)) {
+            safeName = `${safeName}.${extension}`;
+        }
+        
+        const newPath = parentPath === '/' ? safeName : `${parentPath}/${safeName}`;
+        
+        // This handles link updates automatically in Obsidian
+        await app.fileManager.renameFile(file, newPath);
+        return newPath;
     }
 
     // Resolve vault path to viewable URL (app://...)
@@ -170,6 +210,7 @@ export class MindoView extends TextFileView {
                         onShowMessage={(msg) => new Notice(msg)}
                         onRenderMarkdown={this.renderMarkdown}
                         onSaveAsset={this.handleSaveAsset}
+                        onRenameAsset={this.handleRenameAsset}
                         onResolveResource={this.handleResolveResource}
                         onSaveMarkdown={this.handleSaveMarkdown}
                     />

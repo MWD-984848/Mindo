@@ -7,7 +7,9 @@ const DEFAULT_SETTINGS: MindoSettings = {
     aiProvider: 'gemini',
     aiBaseUrl: '',
     aiApiKey: '',
-    aiModel: 'gemini-2.0-flash'
+    aiModel: 'gemini-2.0-flash',
+    imageSaveLocation: 'obsidian',
+    imageFolderPath: 'Mindo Assets'
 }
 
 export default class MindoPlugin extends Plugin {
@@ -158,6 +160,39 @@ class MindoSettingTab extends PluginSettingTab {
 		const { containerEl } = (this as any);
 		containerEl.empty();
 		containerEl.createEl('h2', { text: 'Mindo 设置' });
+
+        // --- Image Settings ---
+        containerEl.createEl('h3', { text: '图片设置' });
+
+        new Setting(containerEl)
+            .setName('图片保存位置')
+            .setDesc('选择粘贴图片时保存到 Vault 的位置。')
+            .addDropdown(dropdown => dropdown
+                .addOption('obsidian', '跟随 Obsidian 附件设置 (默认)')
+                .addOption('folder', '指定文件夹')
+                .setValue(this.plugin.settings.imageSaveLocation)
+                .onChange(async (value) => {
+                    this.plugin.settings.imageSaveLocation = value as 'obsidian' | 'folder';
+                    await this.plugin.saveSettings();
+                    this.display(); // Re-render to show/hide folder input
+                }));
+
+        if (this.plugin.settings.imageSaveLocation === 'folder') {
+            new Setting(containerEl)
+                .setName('文件夹路径')
+                .setDesc('图片将保存到此文件夹下 (例如: "Mindo Assets" 或 "Attachments/MindMap")。')
+                .addText(text => text
+                    .setPlaceholder('Mindo Assets')
+                    .setValue(this.plugin.settings.imageFolderPath)
+                    .onChange(async (value) => {
+                        // Remove trailing slash if user adds it
+                        this.plugin.settings.imageFolderPath = value.replace(/\/$/, "");
+                        await this.plugin.saveSettings();
+                    }));
+        }
+
+        // --- AI Settings ---
+        containerEl.createEl('h3', { text: 'AI 设置' });
 
         // Preset Selector
         new Setting(containerEl)

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MindMapNode, MindMapEdge, ViewportTransform, Position, HandlePosition, MindoSettings, NodeColor } from './types';
 import { generateId, screenToWorld, getHandlePosition, getNearestHandle, getCenter, getBezierMidpoint } from './utils/geometry';
@@ -17,6 +18,7 @@ interface AppProps {
     onShowMessage?: (message: string) => void;
     onRenderMarkdown?: (content: string, el: HTMLElement) => void;
     onSaveAsset?: (file: File) => Promise<string>; // Returns vault path
+    onRenameAsset?: (oldPath: string, newName: string) => Promise<string>; // Handle renaming
     onResolveResource?: (path: string) => string; // Returns displayable URL
     onSaveMarkdown?: (filename: string, content: string) => void;
 }
@@ -38,6 +40,7 @@ const App: React.FC<AppProps> = ({
     onShowMessage, 
     onRenderMarkdown,
     onSaveAsset,
+    onRenameAsset,
     onResolveResource,
     onSaveMarkdown
 }) => {
@@ -161,18 +164,64 @@ const App: React.FC<AppProps> = ({
     }
   }, [initialData, onResolveResource]);
 
-  // Initial Center
+  // Initial Center Logic
   useEffect(() => {
-    if ((!initialData || !initialData.nodes) && containerRef.current && !hasCentered.current) {
+    const performCenter = () => {
+        if (!containerRef.current || hasCentered.current) return;
+        
         const { clientWidth, clientHeight } = containerRef.current;
+        // Wait for valid dimensions
+        if (clientWidth === 0 || clientHeight === 0) return;
+
+        // If initialData has a saved transform, we respect it and mark as centered.
+        if (initialData?.transform) {
+            hasCentered.current = true;
+            return;
+        }
+
+        // Otherwise (New file OR legacy file without transform), calculate center based on nodes bounding box.
+        let targetX = clientWidth / 2 - 100;
+        let targetY = clientHeight / 2 - 50;
+
+        if (nodes.length > 0) {
+             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+             nodes.forEach(n => {
+                 minX = Math.min(minX, n.x);
+                 minY = Math.min(minY, n.y);
+                 maxX = Math.max(maxX, n.x + n.width);
+                 maxY = Math.max(maxY, n.y + n.height);
+             });
+             
+             if (minX !== Infinity) {
+                 const centerX = (minX + maxX) / 2;
+                 const centerY = (minY + maxY) / 2;
+                 targetX = clientWidth / 2 - centerX;
+                 targetY = clientHeight / 2 - centerY;
+             }
+        }
+        
         setTransform({
-            x: clientWidth / 2 - 150, // Adjusted for new width
-            y: clientHeight / 2 - 50,
+            x: targetX,
+            y: targetY,
             scale: 1
         });
         hasCentered.current = true;
+    };
+
+    // Attempt immediately
+    performCenter();
+
+    // Also observe resizing to handle cases where container starts with 0 dimensions
+    const observer = new ResizeObserver(() => {
+        performCenter();
+    });
+
+    if (containerRef.current) {
+        observer.observe(containerRef.current);
     }
-  }, [initialData]);
+
+    return () => observer.disconnect();
+  }, [initialData, nodes]); // Depend on nodes to ensure we have content to center
 
   // Auto Save
   useEffect(() => {
@@ -225,6 +274,9 @@ const App: React.FC<AppProps> = ({
 
   // --- Handlers ---
   const handleWheel = (e: React.WheelEvent) => {
+    // If user interacts, assume centered
+    if (!hasCentered.current) hasCentered.current = true;
+
     if (e.ctrlKey || e.metaKey) {
       const zoomSensitivity = 0.001;
       const delta = -e.deltaY * zoomSensitivity;
@@ -253,6 +305,9 @@ const App: React.FC<AppProps> = ({
   };
 
   const handleMouseDownCanvas = (e: React.MouseEvent) => {
+    // If user interacts, assume centered
+    if (!hasCentered.current) hasCentered.current = true;
+
     if (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey))) {
         setIsPanning(true);
         dragStartRef.current = { x: e.clientX, y: e.clientY };
@@ -811,10 +866,31 @@ const App: React.FC<AppProps> = ({
         return node;
     });
   };
-  const updateNodeData = (id: string, title: string, content: string) => {
+  
+  const updateNodeData = async (id: string, title: string, content: string) => {
     saveHistory(); 
-    setNodes(prev => prev.map(n => n.id === id ? { ...n, title, content } : n));
+    
+    // Check if this is an image node rename operation
+    const node = nodes.find(n => n.id === id);
+    if (node && node.type === 'image' && node.assetPath && node.title !== title && onRenameAsset) {
+        try {
+            // Attempt to rename the file in vault
+            const newPath = await onRenameAsset(node.assetPath, title);
+            // Update node with new path
+            setNodes(prev => prev.map(n => n.id === id ? { ...n, title, content, assetPath: newPath } : n));
+        } catch (e) {
+            console.error("Rename failed", e);
+            // If rename fails (e.g. duplicate name), we might want to alert or prevent the title change
+            // For now, allow the title change in UI but show warning
+             if (onShowMessage) onShowMessage("重命名失败，文件名可能已存在");
+             // Still update the title in UI? Maybe better not to if file didn't change
+             // setNodes(prev => prev.map(n => n.id === id ? { ...n, title, content } : n));
+        }
+    } else {
+        setNodes(prev => prev.map(n => n.id === id ? { ...n, title, content } : n));
+    }
   };
+  
   const updateNodeResize = (id: string, width: number, height: number) => {
     setNodes(prev => prev.map(n => n.id === id ? { ...n, width, height } : n));
   };

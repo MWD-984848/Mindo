@@ -21,6 +21,9 @@ export interface MindoSettings {
   aiBaseUrl: string;
   aiApiKey: string;
   aiModel: string;
+  // New Image Settings
+  imageSaveLocation: 'obsidian' | 'folder';
+  imageFolderPath: string;
 }
 
 export interface MindMapNode {
