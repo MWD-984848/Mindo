@@ -28,7 +28,8 @@ export interface MindMapNode {
   type?: 'node' | 'group' | 'image'; // Distinguish between standard nodes, groups, and images
   title: string;
   content?: string; // Optional body content
-  imageUrl?: string; // For image nodes
+  imageUrl?: string; // For image nodes (Display URL)
+  assetPath?: string; // Path in Obsidian vault (Persistence)
   x: number;
   y: number;
   width: number;

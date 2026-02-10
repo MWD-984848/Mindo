@@ -42,29 +42,31 @@ export const generateMarkdown = (nodes: MindMapNode[], edges: MindMapEdge[]): st
         const node = nodes.find(n => n.id === nodeId);
         if (!node) return;
         
-        // Skip Images or Groups in text export if desired, or just export title
+        // Image Handling
         if (node.type === 'image') {
-            // Optional: Export image as markdown image?
-            // Since imageUrl is dataURL, it might be huge. Let's skip or just put title.
-            // markdownOutput += `${"#".repeat(depth + 1)} Image: ${node.title}\n\n`;
-            return;
-        }
-
-        // Heading formatting
-        // Level 1 (#), Level 2 (##), etc.
-        const headingPrefix = "#".repeat(Math.min(depth + 1, 6)); 
-        
-        // If depth > 5, maybe use bullet points? 
-        // For now, let's stick to headings for structure, or bullet points for deep nesting.
-        
-        if (depth < 6) {
-            markdownOutput += `${headingPrefix} ${node.title}\n`;
+            const indent = "  ".repeat(depth);
+            if (node.assetPath) {
+                // Use Obsidian Wikilink format for images stored in vault
+                markdownOutput += `${indent}![[${node.assetPath}]]\n`;
+            } else {
+                // Fallback for embedded base64 or external links
+                markdownOutput += `${indent}![${node.title}](${node.imageUrl || ''})\n`;
+            }
+            // Continue to process children of image nodes if any
         } else {
-            markdownOutput += `${"  ".repeat(depth - 6)}- **${node.title}**\n`;
-        }
+            // Heading formatting
+            // Level 1 (#), Level 2 (##), etc.
+            const headingPrefix = "#".repeat(Math.min(depth + 1, 6)); 
+            
+            if (depth < 6) {
+                markdownOutput += `${headingPrefix} ${node.title}\n`;
+            } else {
+                markdownOutput += `${"  ".repeat(depth - 6)}- **${node.title}**\n`;
+            }
 
-        if (node.content && node.content.trim()) {
-            markdownOutput += `\n${node.content.trim()}\n`;
+            if (node.content && node.content.trim()) {
+                markdownOutput += `\n${node.content.trim()}\n`;
+            }
         }
         
         markdownOutput += "\n";

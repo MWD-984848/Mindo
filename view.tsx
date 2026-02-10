@@ -77,6 +77,73 @@ export class MindoView extends TextFileView {
         MarkdownRenderer.render(app, content, el, sourcePath, this);
     }
 
+    // Save pasted image to vault
+    handleSaveAsset = async (file: File): Promise<string> => {
+        const app = (this as any).app;
+        const arrayBuffer = await file.arrayBuffer();
+        
+        // Determine path: use attachments folder setting if possible, else root
+        // Obsidian API to get attachments folder is app.vault.getAvailablePathForAttachments or similar, 
+        // but often manual handling is needed. Let's stick to root or a specific assets folder for simplicity
+        // or just next to the current file?
+        // Standard Obsidian behavior: create in root or designated attachment folder.
+        // We will simple create it in the root or a 'Attachments' folder if it exists, or just root.
+        
+        // Actually, let's try to get a unique path.
+        const fileName = file.name;
+        // Normalize filename
+        let safeName = fileName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        if (!safeName) safeName = 'image.png';
+
+        // Get available path to avoid collision
+        // We use app.vault.getAvailablePath which is not explicitly typed in all versions but usually available, 
+        // or check manually.
+        let path = safeName;
+        let i = 1;
+        while (app.vault.getAbstractFileByPath(path)) {
+            const parts = safeName.split('.');
+            const ext = parts.pop();
+            const base = parts.join('.');
+            path = `${base}_${i}.${ext}`;
+            i++;
+        }
+
+        await app.vault.createBinary(path, arrayBuffer);
+        return path;
+    }
+
+    // Resolve vault path to viewable URL (app://...)
+    handleResolveResource = (path: string): string => {
+        const app = (this as any).app;
+        return app.vault.adapter.getResourcePath(path);
+    }
+
+    // Save Markdown export
+    handleSaveMarkdown = async (filename: string, content: string) => {
+        const app = (this as any).app;
+        // Try to save next to current file
+        // @ts-ignore
+        const currentFile = (this as any).file as TFile;
+        let folder = "";
+        if (currentFile && currentFile.parent) {
+            folder = currentFile.parent.path;
+        }
+        
+        // Avoid double slashes if folder is root (empty string)
+        let basePath = folder ? `${folder}/${filename}` : filename;
+        
+        // Ensure unique
+        let finalPath = basePath;
+        let i = 1;
+        while (app.vault.getAbstractFileByPath(finalPath)) {
+             finalPath = basePath.replace('.md', ` ${i}.md`);
+             i++;
+        }
+
+        await app.vault.create(finalPath, content);
+        new Notice(`已导出到: ${finalPath}`);
+    }
+
     renderApp() {
         if (this.root && this.appContainer) {
             let initialData = null;
@@ -102,6 +169,9 @@ export class MindoView extends TextFileView {
                         settings={settings}
                         onShowMessage={(msg) => new Notice(msg)}
                         onRenderMarkdown={this.renderMarkdown}
+                        onSaveAsset={this.handleSaveAsset}
+                        onResolveResource={this.handleResolveResource}
+                        onSaveMarkdown={this.handleSaveMarkdown}
                     />
                 </React.StrictMode>
             );

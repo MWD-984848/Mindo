@@ -16,6 +16,9 @@ interface AppProps {
     settings: MindoSettings;
     onShowMessage?: (message: string) => void;
     onRenderMarkdown?: (content: string, el: HTMLElement) => void;
+    onSaveAsset?: (file: File) => Promise<string>; // Returns vault path
+    onResolveResource?: (path: string) => string; // Returns displayable URL
+    onSaveMarkdown?: (filename: string, content: string) => void;
 }
 
 const DEFAULT_INITIAL_NODES: MindMapNode[] = [
@@ -27,7 +30,17 @@ interface HistoryState {
     edges: MindMapEdge[];
 }
 
-const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onShowMessage, onRenderMarkdown }) => {
+const App: React.FC<AppProps> = ({ 
+    initialData, 
+    onSave, 
+    fileName, 
+    settings, 
+    onShowMessage, 
+    onRenderMarkdown,
+    onSaveAsset,
+    onResolveResource,
+    onSaveMarkdown
+}) => {
   // --- State ---
   const [nodes, setNodes] = useState<MindMapNode[]>(initialData?.nodes || DEFAULT_INITIAL_NODES);
   const [edges, setEdges] = useState<MindMapEdge[]>(initialData?.edges || []);
@@ -66,12 +79,43 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
   const rafRef = useRef<number | null>(null); 
   const initialNodesRef = useRef<MindMapNode[]>([]);
   
-  // Keep latest transform in ref for event listeners
+  // State Refs for Event Handlers (Prevent Stale Closures without re-binding)
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+
+  const edgesRef = useRef(edges);
+  edgesRef.current = edges;
+
   const transformRef = useRef(transform);
-  useEffect(() => { transformRef.current = transform; }, [transform]);
+  transformRef.current = transform;
+
+  const selectedNodeIdsRef = useRef(selectedNodeIds);
+  selectedNodeIdsRef.current = selectedNodeIds;
+
+  const draggingNodeIdRef = useRef(draggingNodeId);
+  draggingNodeIdRef.current = draggingNodeId;
+
+  const connectionStartRef = useRef(connectionStart);
+  connectionStartRef.current = connectionStart;
+  
+  const reconnectingEdgeRef = useRef(reconnectingEdge);
+  reconnectingEdgeRef.current = reconnectingEdge;
+
+  const isPanningRef = useRef(isPanning);
+  isPanningRef.current = isPanning;
+
+  const selectionBoxRef = useRef(selectionBox);
+  selectionBoxRef.current = selectionBox;
   
   // Data Sync Refs
   const lastSavedData = useRef<string>("");
+
+  // Handler Refs (defined early to be available in callbacks)
+  const snapPreviewRef = useRef(snapPreview);
+  snapPreviewRef.current = snapPreview;
+
+  const mouseMoveHandlerRef = useRef<(e: MouseEvent) => void>(() => {});
+  const mouseUpHandlerRef = useRef<() => void>(() => {});
 
   // Dark Mode Detection
   useEffect(() => {
@@ -88,28 +132,34 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     return () => observer.disconnect();
   }, []);
 
-  // Sync with Prop Updates
+  // Sync with Prop Updates & Resolve Asset Paths
   useEffect(() => {
     if (initialData) {
+        let loadedNodes = initialData.nodes || DEFAULT_INITIAL_NODES;
+
+        // Resolve asset paths to display URLs
+        if (onResolveResource) {
+            loadedNodes = loadedNodes.map(node => {
+                if (node.type === 'image' && node.assetPath) {
+                    return { ...node, imageUrl: onResolveResource(node.assetPath) };
+                }
+                return node;
+            });
+        }
+
         const incomingData = {
-            nodes: initialData.nodes || DEFAULT_INITIAL_NODES,
+            nodes: loadedNodes,
             edges: initialData.edges || [],
             transform: initialData.transform || { x: 0, y: 0, scale: 1 },
             version: 1
         };
         const incomingString = JSON.stringify(incomingData, null, 2);
 
-        if (incomingString === lastSavedData.current) {
-            return;
-        }
-
         setNodes(incomingData.nodes);
         setEdges(incomingData.edges);
         setTransform(incomingData.transform);
-        
-        lastSavedData.current = incomingString;
     }
-  }, [initialData]);
+  }, [initialData, onResolveResource]);
 
   // Initial Center
   useEffect(() => {
@@ -246,29 +296,27 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     setSelectedEdgeId(null);
   };
 
-  const processImageFile = (file: File, x: number, y: number, index: number) => {
-    // History saved in handlePaste before calling this loop, or handle here per image
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        const result = ev.target?.result as string;
-        if (result) {
+  // ... (processImageFile and handlePaste unchanged)
+  const processImageFile = async (file: File, x: number, y: number, index: number) => {
+    if (onSaveAsset && onResolveResource) {
+        try {
+            const assetPath = await onSaveAsset(file);
+            const imageUrl = onResolveResource(assetPath);
             const img = new Image();
             img.onload = () => {
                 const MAX_WIDTH = 300;
-                // Calculate dimensions based on aspect ratio
                 const ratio = img.width / img.height;
                 const width = Math.min(img.width, MAX_WIDTH);
-                // Add header height offset (~44px) to ensure image isn't cropped vertically
                 const HEADER_HEIGHT = 44; 
                 const imageHeight = width / ratio;
                 const height = imageHeight + HEADER_HEIGHT;
-
                 const newNode: MindMapNode = {
                     id: generateId(),
                     type: 'image',
                     title: file.name,
                     content: '',
-                    imageUrl: result,
+                    imageUrl: imageUrl,
+                    assetPath: assetPath, 
                     x: x + (index * 20),
                     y: y + (index * 20),
                     width: width,
@@ -277,13 +325,45 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                 };
                 setNodes(prev => [...prev, newNode]);
             };
-            img.src = result;
+            img.src = imageUrl;
+        } catch (e) {
+            console.error("Failed to save image asset", e);
+            if (onShowMessage) onShowMessage("图片保存失败");
         }
-    };
-    reader.readAsDataURL(file);
+    } else {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const result = ev.target?.result as string;
+            if (result) {
+                const img = new Image();
+                img.onload = () => {
+                    const MAX_WIDTH = 300;
+                    const ratio = img.width / img.height;
+                    const width = Math.min(img.width, MAX_WIDTH);
+                    const HEADER_HEIGHT = 44; 
+                    const imageHeight = width / ratio;
+                    const height = imageHeight + HEADER_HEIGHT;
+                    const newNode: MindMapNode = {
+                        id: generateId(),
+                        type: 'image',
+                        title: file.name,
+                        content: '',
+                        imageUrl: result,
+                        x: x + (index * 20),
+                        y: y + (index * 20),
+                        width: width,
+                        height: height, 
+                        color: 'gray'
+                    };
+                    setNodes(prev => [...prev, newNode]);
+                };
+                img.src = result;
+            }
+        };
+        reader.readAsDataURL(file);
+    }
   };
 
-  // Paste Handler
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
         const active = document.activeElement;
@@ -294,67 +374,47 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         if (e.clipboardData && e.clipboardData.files.length > 0) {
             const files = Array.from(e.clipboardData.files) as File[];
             const imageFiles = files.filter(f => f.type.startsWith('image/'));
-            
             if (imageFiles.length === 0) return;
-            
             e.preventDefault();
-            saveHistory(); // History: Image Paste
-
+            saveHistory(); 
             const rect = containerRef.current?.getBoundingClientRect();
             if (!rect) return;
-            
             const centerScreen = { x: rect.width / 2, y: rect.height / 2 };
-            // Use ref for transform
             const worldPos = screenToWorld(centerScreen, transformRef.current);
-
             imageFiles.forEach((file, index) => {
                 processImageFile(file, worldPos.x, worldPos.y, index);
             });
         }
     };
-
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [saveHistory]); 
+  }, [saveHistory, onSaveAsset, onResolveResource]); 
 
+  // ... (handleCreateGroup, handleAlign, update logic helpers unchanged)
   const handleCreateGroup = () => {
     if (selectedNodeIds.size === 0) return;
-    saveHistory(); // History: Create Group
-
+    saveHistory(); 
     const selectedNodes = nodes.filter(n => selectedNodeIds.has(n.id));
     if (selectedNodes.length === 0) return;
-
-    // Auto Layout: Grid
-    // 1. Sort nodes
     selectedNodes.sort((a, b) => a.y - b.y || a.x - b.x);
-
-    // 2. Arrange in Grid
     const columns = Math.ceil(Math.sqrt(selectedNodes.length));
     const GAP = 20;
     let currentX = 0;
     let currentY = 0;
     let rowMaxHeight = 0;
-    
-    // Calculate layout origin based on top-left most node
     const minX = Math.min(...selectedNodes.map(n => n.x));
     const minY = Math.min(...selectedNodes.map(n => n.y));
-    
     const layoutMap = new Map<string, Position>();
-
     selectedNodes.forEach((node, index) => {
         if (index > 0 && index % columns === 0) {
             currentX = 0;
             currentY += rowMaxHeight + GAP;
             rowMaxHeight = 0;
         }
-        
         layoutMap.set(node.id, { x: minX + currentX, y: minY + currentY });
-        
         currentX += node.width + GAP;
         rowMaxHeight = Math.max(rowMaxHeight, node.height);
     });
-
-    // 3. Update nodes with new positions
     let updatedNodes = nodes.map(n => {
         if (layoutMap.has(n.id)) {
             const pos = layoutMap.get(n.id)!;
@@ -362,11 +422,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         }
         return n;
     });
-
-    // 4. Create Group
     const newGroupId = generateId();
-    
-    // Calculate bounds of rearranged nodes
     let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
     selectedNodes.forEach(n => {
         const pos = layoutMap.get(n.id)!;
@@ -375,10 +431,8 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         gMaxX = Math.max(gMaxX, pos.x + n.width);
         gMaxY = Math.max(gMaxY, pos.y + n.height);
     });
-
     const PADDING = 40;
     const TITLE_OFFSET = 40;
-    
     const groupNode: MindMapNode = {
         id: newGroupId,
         type: 'group',
@@ -390,45 +444,33 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         height: (gMaxY - gMinY) + (PADDING * 2) + TITLE_OFFSET,
         color: 'gray'
     };
-
     updatedNodes = updatedNodes.map(n => {
         if (selectedNodeIds.has(n.id)) {
             return { ...n, parentId: newGroupId };
         }
         return n;
     });
-
     setNodes([...updatedNodes, groupNode]);
     setSelectedNodeIds(new Set([newGroupId]));
   };
 
   const handleAlign = (direction: 'horizontal' | 'vertical') => {
     if (selectedNodeIds.size < 2) return;
-    saveHistory(); // History: Align
-
+    saveHistory(); 
     const selectedNodes = nodes.filter(n => selectedNodeIds.has(n.id));
     if (selectedNodes.length === 0) return;
-
     if (direction === 'horizontal') {
-        // Align Y coordinates (Center)
         const totalY = selectedNodes.reduce((sum, n) => sum + (n.y + n.height/2), 0);
         const avgY = totalY / selectedNodes.length;
-        
         setNodes(prev => prev.map(n => {
-            if (selectedNodeIds.has(n.id)) {
-                return { ...n, y: avgY - n.height/2 };
-            }
+            if (selectedNodeIds.has(n.id)) return { ...n, y: avgY - n.height/2 };
             return n;
         }));
     } else {
-        // Align X coordinates (Center)
         const totalX = selectedNodes.reduce((sum, n) => sum + (n.x + n.width/2), 0);
         const avgX = totalX / selectedNodes.length;
-        
         setNodes(prev => prev.map(n => {
-            if (selectedNodeIds.has(n.id)) {
-                return { ...n, x: avgX - n.width/2 };
-            }
+            if (selectedNodeIds.has(n.id)) return { ...n, x: avgX - n.width/2 };
             return n;
         }));
     }
@@ -436,6 +478,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
 
   const handleNodeMouseDown = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
+    e.preventDefault(); // Prevent native drag
     
     if (e.shiftKey) {
         setSelectedNodeIds(prev => {
@@ -453,13 +496,10 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     }
 
     setDraggingNodeId(id);
-    
     const node = nodes.find(n => n.id === id);
     if (node) {
       dragStartRef.current = { x: e.clientX, y: e.clientY };
-      // Store current state in ref to potentially save to history on drag end
       initialNodesRef.current = nodes; 
-
       if (node.type === 'group') {
           const children = nodes.filter(n => n.parentId === id);
           setDraggedChildrenIds(children.map(c => c.id));
@@ -474,8 +514,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
       setSelectedEdgeId(id);
       setSelectedNodeIds(new Set());
   };
-
-  // Triggered when user starts dragging a new connection from a node handle
   const handleConnectStart = (e: React.MouseEvent, nodeId: string, handle: HandlePosition) => {
     setConnectionStart({ nodeId, handle });
     const rect = containerRef.current?.getBoundingClientRect();
@@ -485,20 +523,12 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
        setTempConnectionEnd(worldPos);
     }
   };
-
-  // Triggered when user starts dragging an existing edge's start or end point
   const handleEdgeReconnectStart = (e: React.MouseEvent, edgeId: string, which: 'from' | 'to') => {
       e.stopPropagation();
       e.preventDefault();
-      
       const edge = edges.find(ed => ed.id === edgeId);
       if(!edge) return;
-
-      // We set reconnecting state
       setReconnectingEdge({ edgeId, which });
-      
-      // Determine the "fixed" point (if we move 'to', 'from' is fixed, and vice versa)
-      // This is needed for snap calculation, but for now we just track dragging
       const rect = containerRef.current?.getBoundingClientRect();
       if (rect) {
         const mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -506,20 +536,17 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         setTempConnectionEnd(worldPos);
      }
   };
-
   const handleConnectEnd = (e: React.MouseEvent, targetId: string, targetHandle: HandlePosition) => {
      createConnection(targetId, targetHandle);
   };
-
   const createConnection = (targetId: string, targetHandle: HandlePosition) => {
     if (connectionStart && connectionStart.nodeId !== targetId) {
         const exists = edges.some(edge => 
           (edge.from === connectionStart.nodeId && edge.to === targetId) ||
           (edge.from === targetId && edge.to === connectionStart.nodeId)
         );
-  
         if (!exists) {
-          saveHistory(); // History: New Connection
+          saveHistory(); 
           const newEdge: MindMapEdge = {
               id: generateId(),
               from: connectionStart.nodeId,
@@ -538,18 +565,24 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
       setSnapPreview(null);
   };
 
-  useEffect(() => {
-      // Logic handled in mousedown now
-  }, [draggingNodeId]); 
-
+  // --- Optimized Event Handlers using Refs to prevent re-binding ---
+  
   const handleGlobalMouseMove = useCallback((e: MouseEvent) => {
        if (rafRef.current) return;
-
        const clientX = e.clientX;
        const clientY = e.clientY;
-
+       
        rafRef.current = requestAnimationFrame(() => {
-           // Panning
+         try {
+           const isPanning = isPanningRef.current;
+           const selectionBox = selectionBoxRef.current;
+           const draggingNodeId = draggingNodeIdRef.current;
+           const connectionStart = connectionStartRef.current;
+           const reconnectingEdge = reconnectingEdgeRef.current;
+           
+           const currentTransform = transformRef.current;
+           const currentNodes = nodesRef.current;
+
            if (isPanning) {
                const dx = clientX - dragStartRef.current.x;
                const dy = clientY - dragStartRef.current.y;
@@ -559,21 +592,18 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                  y: itemStartRef.current.y + dy
                }));
            } 
-           // Selection Box
            else if (selectionBox) {
                const rect = containerRef.current?.getBoundingClientRect();
                if (rect) {
                    setSelectionBox(prev => prev ? ({ ...prev, end: { x: clientX - rect.left, y: clientY - rect.top } }) : null);
                }
            }
-           // Dragging Nodes
            else if (draggingNodeId && initialNodesRef.current.length > 0) {
-              const dx = (clientX - dragStartRef.current.x) / transform.scale;
-              const dy = (clientY - dragStartRef.current.y) / transform.scale;
-
-              // Move all selected nodes if dragging one of them
-              const isDraggingSelection = selectedNodeIds.has(draggingNodeId);
-              const nodesToMove = isDraggingSelection ? Array.from(selectedNodeIds) : [draggingNodeId];
+              const dx = (clientX - dragStartRef.current.x) / currentTransform.scale;
+              const dy = (clientY - dragStartRef.current.y) / currentTransform.scale;
+              
+              const isDraggingSelection = selectedNodeIdsRef.current.has(draggingNodeId);
+              const nodesToMove = isDraggingSelection ? Array.from(selectedNodeIdsRef.current) : [draggingNodeId];
               
               setNodes(prev => prev.map(n => {
                   if (nodesToMove.includes(n.id)) {
@@ -586,46 +616,32 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                        const start = initialNodesRef.current.find(sn => sn.id === n.id);
                        if (start) return { ...n, x: start.x + dx, y: start.y + dy };
                   }
-                  
                   return n;
               }));
            } 
-           // Creating New Connection Line
            else if (connectionStart && containerRef.current) {
               const rect = containerRef.current.getBoundingClientRect();
               const mousePos = { x: clientX - rect.left, y: clientY - rect.top };
-              const worldPos = screenToWorld(mousePos, transform);
+              const worldPos = screenToWorld(mousePos, currentTransform);
               setTempConnectionEnd(worldPos);
-
-              const nearest = getNearestHandle(worldPos, nodes, connectionStart.nodeId, 50);
-              if (nearest) {
-                  setSnapPreview(nearest);
-              } else {
-                  setSnapPreview(null);
-              }
+              const nearest = getNearestHandle(worldPos, currentNodes, connectionStart.nodeId, 50);
+              setSnapPreview(nearest);
            }
-           // Reconnecting Existing Edge
            else if (reconnectingEdge && containerRef.current) {
               const rect = containerRef.current.getBoundingClientRect();
               const mousePos = { x: clientX - rect.left, y: clientY - rect.top };
-              const worldPos = screenToWorld(mousePos, transform);
+              const worldPos = screenToWorld(mousePos, currentTransform);
               setTempConnectionEnd(worldPos);
-
-              // Find current edge to know the "other" node
-              const edge = edges.find(ed => ed.id === reconnectingEdge.edgeId);
+              const edge = edgesRef.current.find(ed => ed.id === reconnectingEdge.edgeId);
               const excludeNodeId = edge ? (reconnectingEdge.which === 'from' ? edge.to : edge.from) : '';
-
-              const nearest = getNearestHandle(worldPos, nodes, excludeNodeId, 50);
-              if (nearest) {
-                  setSnapPreview(nearest);
-              } else {
-                  setSnapPreview(null);
-              }
+              const nearest = getNearestHandle(worldPos, currentNodes, excludeNodeId, 50);
+              setSnapPreview(nearest);
            }
-           rafRef.current = null;
+         } finally {
+            rafRef.current = null;
+         }
        });
-
-  }, [draggingNodeId, draggedChildrenIds, isPanning, connectionStart, transform, nodes, selectionBox, selectedNodeIds, reconnectingEdge, edges]);
+  }, []);
 
   const handleMouseUp = useCallback(() => {
     if (rafRef.current) {
@@ -633,15 +649,18 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         rafRef.current = null;
     }
 
-    // Finish Selection Box
+    const selectionBox = selectionBoxRef.current;
     if (selectionBox) {
         const x1 = Math.min(selectionBox.start.x, selectionBox.end.x);
         const y1 = Math.min(selectionBox.start.y, selectionBox.end.y);
         const x2 = Math.max(selectionBox.start.x, selectionBox.end.x);
         const y2 = Math.max(selectionBox.start.y, selectionBox.end.y);
 
-        const p1 = screenToWorld({x: x1, y: y1}, transform);
-        const p2 = screenToWorld({x: x2, y: y2}, transform);
+        const currentTransform = transformRef.current;
+        const currentNodes = nodesRef.current;
+
+        const p1 = screenToWorld({x: x1, y: y1}, currentTransform);
+        const p2 = screenToWorld({x: x2, y: y2}, currentTransform);
         
         const minWX = Math.min(p1.x, p2.x);
         const minWY = Math.min(p1.y, p2.y);
@@ -649,60 +668,77 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         const maxWY = Math.max(p1.y, p2.y);
 
         const selected = new Set<string>();
-        nodes.forEach(n => {
+        currentNodes.forEach(n => {
             if (n.x >= minWX && n.x + n.width <= maxWX && n.y >= minWY && n.y + n.height <= maxWY) {
                 selected.add(n.id);
             }
         });
         
-        if (selected.size > 0) {
-            setSelectedNodeIds(selected);
-        }
+        if (selected.size > 0) setSelectedNodeIds(selected);
         setSelectionBox(null);
     }
 
-    // Creating new connection
-    if (connectionStart && snapPreview) {
-        createConnection(snapPreview.nodeId, snapPreview.handle);
+    const connectionStart = connectionStartRef.current;
+    const reconnectingEdge = reconnectingEdgeRef.current;
+    const snap = snapPreviewRef.current; // Use Ref
+    const draggingId = draggingNodeIdRef.current;
+
+    if (connectionStart && snap) {
+         setEdges(prev => {
+            const exists = prev.some(edge => 
+                (edge.from === connectionStart.nodeId && edge.to === snap.nodeId) ||
+                (edge.from === snap.nodeId && edge.to === connectionStart.nodeId)
+            );
+            if (!exists) {
+                setPast(p => [...p, { nodes: nodesRef.current, edges: edgesRef.current }]);
+                setFuture([]);
+                
+                return [...prev, {
+                    id: generateId(),
+                    from: connectionStart.nodeId,
+                    to: snap.nodeId,
+                    fromHandle: connectionStart.handle,
+                    toHandle: snap.handle,
+                    style: 'solid',
+                    arrow: 'to',
+                    color: darkMode ? '#a3a3a3' : '#94a3b8'
+                }];
+            }
+            return prev;
+         });
     }
 
-    // Finishing reconnection
-    if (reconnectingEdge && snapPreview) {
-        saveHistory(); // History: Edge Reconnect
+    if (reconnectingEdge && snap) {
+        setPast(p => [...p, { nodes: nodesRef.current, edges: edgesRef.current }]);
+        setFuture([]);
         setEdges(prev => prev.map(e => {
             if (e.id === reconnectingEdge.edgeId) {
-                if (reconnectingEdge.which === 'from') {
-                    return { ...e, from: snapPreview.nodeId, fromHandle: snapPreview.handle };
-                } else {
-                    return { ...e, to: snapPreview.nodeId, toHandle: snapPreview.handle };
-                }
+                if (reconnectingEdge.which === 'from') return { ...e, from: snap.nodeId, fromHandle: snap.handle };
+                else return { ...e, to: snap.nodeId, toHandle: snap.handle };
             }
             return e;
         }));
     }
 
-    if (draggingNodeId) {
-        // Check if nodes actually moved to save history
-        const hasMoved = nodes.some(n => {
+    if (draggingId) {
+        // Logic for history on drag end
+        const currentNodes = nodesRef.current;
+        const hasMoved = currentNodes.some(n => {
              const init = initialNodesRef.current.find(i => i.id === n.id);
              return init && (init.x !== n.x || init.y !== n.y);
         });
-
         if (hasMoved) {
-            // Push the *previous* state (before drag) to history
-            // current nodes state is the "new" state
-            setPast(prev => [...prev, { nodes: initialNodesRef.current, edges }]); 
+            // Push previous state
+            setPast(p => [...p, { nodes: initialNodesRef.current, edges: edgesRef.current }]); 
             setFuture([]);
         }
-
+        
+        // Recalculate groups
         setNodes(prev => {
-            const isDraggingSelection = selectedNodeIds.has(draggingNodeId);
-            const nodesToCheck = isDraggingSelection ? Array.from(selectedNodeIds) : [draggingNodeId];
-            
+            const isDraggingSelection = selectedNodeIdsRef.current.has(draggingId);
+            const nodesToCheck = isDraggingSelection ? Array.from(selectedNodeIdsRef.current) : [draggingId];
             let current = prev;
-            if (nodesToCheck.length === 1) {
-                 current = updateParentIds(current, nodesToCheck[0]);
-            }
+            if (nodesToCheck.length === 1) current = updateParentIds(current, nodesToCheck[0]);
             return recalculateGroupBounds(current);
         });
     }
@@ -714,24 +750,32 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     setTempConnectionEnd(null);
     setSnapPreview(null);
     setReconnectingEdge(null);
-  }, [connectionStart, snapPreview, edges, draggingNodeId, selectionBox, transform, nodes, selectedNodeIds, reconnectingEdge]); 
+  }, [darkMode]);
 
+  // Sync handlers to refs
   useEffect(() => {
-    window.addEventListener('mousemove', handleGlobalMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleGlobalMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
+      mouseMoveHandlerRef.current = handleGlobalMouseMove;
+      mouseUpHandlerRef.current = handleMouseUp;
   }, [handleGlobalMouseMove, handleMouseUp]);
 
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => mouseMoveHandlerRef.current(e);
+    const onUp = (e: MouseEvent) => mouseUpHandlerRef.current(); // Ignore event arg
 
-  // --- Logic Helpers ---
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, []); // Run ONCE
+
+
+  // ... (updateParentIds, recalculateGroupBounds, updateNodeData, updateNodeResize, updateNodeColor, updateEdge, deleteNode, deleteSelected)
   const updateParentIds = (currentNodes: MindMapNode[], specificNodeId?: string): MindMapNode[] => {
       return currentNodes.map(node => {
           if (node.type === 'group') return node; 
           if (specificNodeId && node.id !== specificNodeId) return node;
-
           const center = getCenter(node);
           const targetGroup = currentNodes.find(g => 
               g.type === 'group' && 
@@ -739,21 +783,15 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
               center.x >= g.x && center.x <= g.x + g.width &&
               center.y >= g.y && center.y <= g.y + g.height
           );
-
-          if (targetGroup) {
-              return { ...node, parentId: targetGroup.id };
-          } else {
-              return { ...node, parentId: undefined };
-          }
+          if (targetGroup) return { ...node, parentId: targetGroup.id };
+          else return { ...node, parentId: undefined };
       });
   };
-
   const recalculateGroupBounds = (currentNodes: MindMapNode[]): MindMapNode[] => {
     return currentNodes.map(node => {
         if (node.type === 'group') {
             const children = currentNodes.filter(n => n.parentId === node.id);
             if (children.length === 0) return node; 
-
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             children.forEach(child => {
                 minX = Math.min(minX, child.x);
@@ -761,51 +799,34 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                 maxX = Math.max(maxX, child.x + child.width);
                 maxY = Math.max(maxY, child.y + child.height);
             });
-
             const PADDING = 30;
             const TITLE_OFFSET = 40;
-
             const newX = minX - PADDING;
             const newY = minY - PADDING - TITLE_OFFSET;
             const newWidth = (maxX - minX) + (PADDING * 2);
             const newHeight = (maxY - minY) + (PADDING * 2) + TITLE_OFFSET;
-            
-            if (Math.abs(newX - node.x) < 1 && Math.abs(newWidth - node.width) < 1 && Math.abs(newHeight - node.height) < 1) {
-                return node;
-            }
-
-            return {
-                ...node,
-                x: newX,
-                y: newY,
-                width: newWidth,
-                height: newHeight
-            };
+            if (Math.abs(newX - node.x) < 1 && Math.abs(newWidth - node.width) < 1 && Math.abs(newHeight - node.height) < 1) return node;
+            return { ...node, x: newX, y: newY, width: newWidth, height: newHeight };
         }
         return node;
     });
   };
-
   const updateNodeData = (id: string, title: string, content: string) => {
-    saveHistory(); // History: Edit Text
+    saveHistory(); 
     setNodes(prev => prev.map(n => n.id === id ? { ...n, title, content } : n));
   };
-  
   const updateNodeResize = (id: string, width: number, height: number) => {
     setNodes(prev => prev.map(n => n.id === id ? { ...n, width, height } : n));
   };
-
   const updateNodeColor = (id: string, color: NodeColor) => {
-    saveHistory(); // History: Change Color
+    saveHistory(); 
     setNodes(prev => prev.map(n => n.id === id ? { ...n, color } : n));
   };
-
   const updateEdge = (id: string, updates: Partial<MindMapEdge>) => {
       setEdges(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
   };
-
   const deleteNode = (id: string) => {
-    saveHistory(); // History: Delete Node
+    saveHistory(); 
     setNodes(prev => prev.filter(n => n.id !== id));
     setEdges(prev => prev.filter(edge => edge.from !== id && edge.to !== id));
     if (selectedNodeIds.has(id)) {
@@ -814,9 +835,8 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         setSelectedNodeIds(next);
     }
   };
-  
   const deleteSelected = () => {
-      saveHistory(); // History: Delete Selection
+      saveHistory(); 
       if (selectedNodeIds.size > 0) {
           setNodes(prev => prev.filter(n => !selectedNodeIds.has(n.id)));
           setEdges(prev => prev.filter(e => !selectedNodeIds.has(e.from) && !selectedNodeIds.has(e.to)));
@@ -828,34 +848,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
       }
   };
 
-  useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => {
-          if (e.key === 'Delete' || e.key === 'Backspace') {
-              const target = e.target as HTMLElement;
-              if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-              deleteSelected();
-          }
-
-          // Undo / Redo
-          if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
-              if (e.shiftKey) {
-                  redo();
-              } else {
-                  undo();
-              }
-              e.preventDefault();
-          }
-          if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
-              redo();
-              e.preventDefault();
-          }
-      };
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNodeIds, selectedEdgeId, undo, redo, deleteSelected]);
-
   const handleAiExpand = async () => {
-    // Explicit feedback for better UX
     if (selectedNodeIds.size === 0) {
         if(onShowMessage) onShowMessage("请先选中一个主题节点以进行 AI 扩展。");
         return;
@@ -868,34 +861,24 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
 
     const selectedId = Array.from(selectedNodeIds)[0];
     const node = nodes.find(n => n.id === selectedId);
-    
     if (!node || !node.title.trim()) {
         if(onShowMessage) onShowMessage("节点标题不能为空。");
         return;
     }
-
     if (!settings.aiApiKey) {
-        if (onShowMessage) {
-            onShowMessage("请先在 Mindo 设置中配置您的 AI API Key。");
-        } else {
-            alert("请先在 Mindo 设置中配置您的 AI API Key。");
-        }
+        if (onShowMessage) onShowMessage("请先在 Mindo 设置中配置您的 AI API Key。");
+        else alert("请先在 Mindo 设置中配置您的 AI API Key。");
         return;
     }
-
     setIsAiLoading(true);
     try {
       const suggestions: AiResult[] = await expandIdea(node.title, settings);
-      
-      saveHistory(); // History: AI Expand
-
+      saveHistory(); 
       const newNodes: MindMapNode[] = [];
       const newEdges: MindMapEdge[] = [];
       const radius = 350; 
-      
       suggestions.forEach((item, index) => {
         const fanAngle = (index - (suggestions.length - 1) / 2) * (Math.PI / 4); 
-
         const newNodeId = generateId();
         newNodes.push({
           id: newNodeId,
@@ -904,12 +887,11 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
           content: item.content, 
           x: node.x + radius * Math.cos(fanAngle) + 100, 
           y: node.y + radius * Math.sin(fanAngle),
-          width: 120, // Reduced from 240
+          width: 120, 
           height: 120, 
           color: node.color === 'gray' ? 'blue' : node.color,
           parentId: node.id
         });
-
         newEdges.push({
           id: generateId(),
           from: node.id,
@@ -921,30 +903,24 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
           color: darkMode ? '#a3a3a3' : '#94a3b8'
         });
       });
-
       setNodes(prev => [...prev, ...newNodes]);
       setEdges(prev => [...prev, ...newEdges]);
     } catch (e: any) {
       console.error(e);
       const msg = e.message || "AI 生成失败，请检查控制台详情。";
-      if (onShowMessage) {
-          onShowMessage(msg);
-      } else {
-          alert(msg);
-      }
+      if (onShowMessage) onShowMessage(msg);
+      else alert(msg);
     } finally {
       setIsAiLoading(false);
     }
   };
 
   const handleExportImage = useCallback(async (pixelRatio: number = 2) => {
-    if (canvasContentRef.current === null) {
-      return;
-    }
+    if (canvasContentRef.current === null) return;
     try {
         const dataUrl = await htmlToImage.toPng(canvasContentRef.current, {
             backgroundColor: darkMode ? '#111827' : '#ffffff',
-            pixelRatio: pixelRatio // Use the passed resolution multiplier
+            pixelRatio: pixelRatio 
         });
         const link = document.createElement('a');
         link.download = `${fileName || '思维导图'}.png`;
@@ -957,24 +933,22 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
 
   const handleExportMarkdown = useCallback(() => {
     const md = generateMarkdown(nodes, edges);
-    
-    // Trigger download of markdown file
-    const blob = new Blob([md], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${fileName || '思维导图'}.md`;
-    link.click();
-    URL.revokeObjectURL(url);
-    
-    if (onShowMessage) {
-        onShowMessage("已导出 Markdown 文件");
+    if (onSaveMarkdown) {
+        onSaveMarkdown(`${fileName || '思维导图'}.md`, md);
+    } else {
+        // Fallback for web
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${fileName || '思维导图'}.md`;
+        link.click();
+        URL.revokeObjectURL(url);
     }
-  }, [nodes, edges, fileName, onShowMessage]);
+    if (onShowMessage) onShowMessage("已导出 Markdown 文件");
+  }, [nodes, edges, fileName, onShowMessage, onSaveMarkdown]);
 
   const selectedEdgeObj = edges.find(e => e.id === selectedEdgeId);
-
-  // Separate nodes for rendering order (Groups -> SVG -> Standard Nodes)
   const groupNodes = nodes.filter(n => n.type === 'group');
   const standardNodes = nodes.filter(n => n.type !== 'group');
 
@@ -999,7 +973,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
             position: 'relative'
           }}
         >
-          {/* Layer 1: Groups (Background) */}
           {groupNodes.map(node => (
             <NodeComponent
               key={node.id}
@@ -1008,25 +981,22 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
               isSelected={selectedNodeIds.has(node.id)}
               isDragging={draggingNodeId === node.id || (selectedNodeIds.has(node.id) && !!draggingNodeId)}
               onMouseDown={handleNodeMouseDown}
-              onMouseUp={handleMouseUp}
+              onMouseUp={handleMouseUp} // Use stable handler
               onConnectStart={handleConnectStart}
               onConnectEnd={handleConnectEnd}
               onUpdate={updateNodeData}
               onResize={updateNodeResize}
-              onResizeStart={saveHistory} // Save history before resize
+              onResizeStart={saveHistory} 
               onDelete={deleteNode}
               onColorChange={updateNodeColor}
               onRenderMarkdown={onRenderMarkdown}
             />
           ))}
-
-          {/* Layer 2: Edges (Middle) */}
           <svg style={{ overflow: 'visible', position: 'absolute', top: 0, left: 0, pointerEvents: 'none', width: '1px', height: '1px', zIndex: 10 }}>
             {edges.map(edge => {
               const source = nodes.find(n => n.id === edge.from);
               const target = nodes.find(n => n.id === edge.to);
               if (!source || !target) return null;
-              
               return (
                 <EdgeComponent
                   key={edge.id}
@@ -1037,20 +1007,17 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                   onSelect={handleEdgeSelect}
                   onDelete={() => { saveHistory(); setEdges(prev => prev.filter(e => e.id !== edge.id)); }}
                   onUpdate={updateEdge}
-                  onInteractStart={saveHistory} // Save history before dragging breakpoints/control points
+                  onInteractStart={saveHistory} 
                   transform={transform}
                 />
               );
             })}
           </svg>
-
-          {/* Layer 3: Edge Labels (Middle-Top, zIndex 15) */}
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 15 }}>
             {edges.map(edge => {
               const source = nodes.find(n => n.id === edge.from);
               const target = nodes.find(n => n.id === edge.to);
               if (!source || !target) return null;
-              
               return (
                 <EdgeLabel
                   key={edge.id}
@@ -1062,8 +1029,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
               );
             })}
           </div>
-
-          {/* Layer 4: Standard Nodes (Foreground, zIndex 20) */}
           {standardNodes.map(node => (
             <NodeComponent
               key={node.id}
@@ -1077,25 +1042,20 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
               onConnectEnd={handleConnectEnd}
               onUpdate={updateNodeData}
               onResize={updateNodeResize}
-              onResizeStart={saveHistory} // Save history before resize
+              onResizeStart={saveHistory} 
               onDelete={deleteNode}
               onColorChange={updateNodeColor}
               onRenderMarkdown={onRenderMarkdown}
             />
           ))}
-
-          {/* Layer 5: Controls Overlay (Top) - zIndex 60 to be above Nodes (zIndex 20) */}
           <svg style={{ overflow: 'visible', position: 'absolute', top: 0, left: 0, pointerEvents: 'none', width: '1px', height: '1px', zIndex: 60 }}>
-            {/* Reconnect Handles for Selected Edge */}
             {selectedEdgeObj && selectedEdgeId && (() => {
                 const source = nodes.find(n => n.id === selectedEdgeObj.from);
                 const target = nodes.find(n => n.id === selectedEdgeObj.to);
                 if (!source || !target) return null;
-
                 const start = getHandlePosition(source, selectedEdgeObj.fromHandle);
                 const end = getHandlePosition(target, selectedEdgeObj.toHandle);
                 const color = selectedEdgeObj.color || '#94a3b8';
-
                 return (
                     <>
                          <circle
@@ -1123,8 +1083,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                     </>
                 );
             })()}
-            
-            {/* Connection Preview (New or Reconnect) */}
             {(connectionStart || reconnectingEdge) && tempConnectionEnd && (
                 <>
                 <path
@@ -1149,11 +1107,9 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                         } else {
                             return '';
                         }
-
                         const endPoint = snapPreview 
                             ? getHandlePosition(nodes.find(n => n.id === snapPreview.nodeId)!, snapPreview.handle)
                             : tempConnectionEnd;
-                            
                         return `M ${startPoint.x} ${startPoint.y} L ${endPoint.x} ${endPoint.y}`;
                     })()}
                     className={`mindo-connection-preview ${snapPreview ? 'snapping' : ''}`}
@@ -1161,8 +1117,6 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
                 </>
             )}
           </svg>
-
-          {/* Selection Box (Overlay) */}
           {selectionBox && (
               <div 
                   className="mindo-selection-box"
@@ -1176,22 +1130,19 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
           )}
         </div>
       </div>
-      
-      {/* Edge Context Menu - Now fixed at bottom */}
       {selectedEdgeId && selectedEdgeObj && (
           <EdgeMenu 
               edge={selectedEdgeObj} 
               onUpdate={(id, updates) => {
-                  saveHistory(); // History: Edge Update via Menu
+                  saveHistory(); 
                   updateEdge(id, updates);
               }}
               onDelete={(id) => {
-                  saveHistory(); // History: Edge Delete via Menu
+                  saveHistory(); 
                   setEdges(prev => prev.filter(e => e.id !== selectedEdgeObj.id));
               }}
           />
       )}
-
       <Toolbar
         scale={transform.scale}
         onZoomIn={() => setTransform(t => ({ ...t, scale: Math.min(t.scale + 0.2, 5) }))}

@@ -25,6 +25,15 @@
     box-shadow: none !important;
 }
 
+/* Editing Styles for Math/Code comfort */
+.mindo-editing-mono {
+    font-family: var(--font-monospace, 'Consolas', 'Monaco', 'Andale Mono', 'Ubuntu Mono', monospace) !important;
+    font-size: 0.9em; 
+    line-height: 1.5 !important;
+    font-variant-ligatures: none;
+    letter-spacing: 0.02em;
+}
+
 /* Scrollbar hiding */
 .no-scrollbar::-webkit-scrollbar {
     display: none;
