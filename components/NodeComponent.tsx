@@ -41,6 +41,7 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
   const contentInputRef = useRef<HTMLTextAreaElement>(null);
   const nodeRef = useRef<HTMLDivElement>(null);
   const markdownRef = useRef<HTMLDivElement>(null);
+  const titleMarkdownRef = useRef<HTMLDivElement>(null);
 
   const themeClass = NODE_STYLES[node.color]?.className || NODE_STYLES['gray'].className;
   const isGroup = node.type === 'group';
@@ -66,12 +67,21 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
       }
   }, [node.id, node.width, node.height, onResize, isGroup]);
 
+  // Render Markdown for Content
   useEffect(() => {
       if (!isEditing && markdownRef.current && onRenderMarkdown && node.content && !isImage) {
           markdownRef.current.innerHTML = '';
           onRenderMarkdown(node.content, markdownRef.current);
       }
   }, [isEditing, node.content, onRenderMarkdown, isImage]);
+
+  // Render Markdown for Title (Support MathJax)
+  useEffect(() => {
+      if (!isEditing && titleMarkdownRef.current && onRenderMarkdown && node.title && !isGroup) {
+          titleMarkdownRef.current.innerHTML = '';
+          onRenderMarkdown(node.title, titleMarkdownRef.current);
+      }
+  }, [isEditing, node.title, onRenderMarkdown, isGroup]);
 
   const adjustTextareaHeight = () => {
     if (contentInputRef.current) {
@@ -274,9 +284,17 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({
             onMouseDown={stopProp}
           />
         ) : (
-          <div style={{ userSelect: 'none', whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
-            {node.title || "未命名"}
-          </div>
+          onRenderMarkdown ? (
+              <div 
+                ref={titleMarkdownRef} 
+                className="mindo-markdown-content"
+                style={{ userSelect: 'none', textAlign: 'center', pointerEvents: 'none' }} 
+              />
+          ) : (
+             <div style={{ userSelect: 'none', whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
+                {node.title || "未命名"}
+             </div>
+          )
         )}
       </div>
 

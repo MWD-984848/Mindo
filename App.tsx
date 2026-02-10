@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MindMapNode, MindMapEdge, ViewportTransform, Position, HandlePosition, MindoSettings, NodeColor } from './types';
 import { generateId, screenToWorld, getHandlePosition, getNearestHandle, getCenter, getBezierMidpoint } from './utils/geometry';
@@ -6,6 +5,7 @@ import { NodeComponent } from './components/NodeComponent';
 import { EdgeComponent, EdgeMenu, EdgeLabel } from './components/EdgeComponent';
 import { Toolbar } from './components/Toolbar';
 import { expandIdea, AiResult } from './services/aiService';
+import { generateMarkdown } from './utils/markdownExport';
 import * as htmlToImage from 'html-to-image';
 import './styles.css';
 
@@ -955,6 +955,23 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
     }
   }, [darkMode, fileName]);
 
+  const handleExportMarkdown = useCallback(() => {
+    const md = generateMarkdown(nodes, edges);
+    
+    // Trigger download of markdown file
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${fileName || '思维导图'}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    if (onShowMessage) {
+        onShowMessage("已导出 Markdown 文件");
+    }
+  }, [nodes, edges, fileName, onShowMessage]);
+
   const selectedEdgeObj = edges.find(e => e.id === selectedEdgeId);
 
   // Separate nodes for rendering order (Groups -> SVG -> Standard Nodes)
@@ -1196,6 +1213,7 @@ const App: React.FC<AppProps> = ({ initialData, onSave, fileName, settings, onSh
         onAiExpand={handleAiExpand}
         onAddGroup={handleCreateGroup}
         onExportImage={handleExportImage}
+        onExportMarkdown={handleExportMarkdown}
         onAlign={handleAlign}
         isAiLoading={isAiLoading}
         canGroup={selectedNodeIds.size > 1}

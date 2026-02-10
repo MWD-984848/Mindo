@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Minus, Plus, Maximize, Sparkles, RefreshCcw, Image as ImageIcon, BoxSelect, AlignCenterHorizontal, AlignCenterVertical, ChevronDown } from 'lucide-react';
+import { Minus, Plus, Maximize, Sparkles, RefreshCcw, Image as ImageIcon, BoxSelect, AlignCenterHorizontal, AlignCenterVertical, ChevronDown, FileText } from 'lucide-react';
 
 interface ToolbarProps {
   scale: number;
@@ -11,6 +10,7 @@ interface ToolbarProps {
   onAiExpand: () => void;
   onAddGroup: () => void;
   onExportImage: (pixelRatio: number) => void;
+  onExportMarkdown: () => void;
   onAlign?: (direction: 'horizontal' | 'vertical') => void;
   isAiLoading: boolean;
   canGroup: boolean;
@@ -27,6 +27,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onAiExpand,
   onAddGroup,
   onExportImage,
+  onExportMarkdown,
   onAlign,
   isAiLoading,
   canGroup,
@@ -38,7 +39,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <div className="mindo-toolbar">
       
-      {/* Left: Image Export */}
+      {/* Left: Export */}
       <div className="mindo-toolbar-section">
         <button 
             onClick={() => onExportImage(parseInt(exportRes))} 
@@ -63,6 +64,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 <option value="4">4x</option>
             </select>
         </div>
+
+        <button 
+            onClick={onExportMarkdown} 
+            className="mindo-toolbar-btn" 
+            title="导出 Markdown"
+        >
+            <FileText size={18} />
+        </button>
       </div>
 
       <div className="mindo-toolbar-divider" />

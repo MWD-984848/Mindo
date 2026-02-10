@@ -173,9 +173,22 @@
     border-top-right-radius: 0.75rem;
     font-weight: 700;
     text-align: center;
-    white-space: pre-wrap;
     line-height: 1.25;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.5rem;
 }
+/* Markdown render specific styles for Header */
+.mindo-node-header .mindo-markdown-content {
+    width: 100%;
+    /* Ensure paragraph margin is minimal in titles */
+}
+.mindo-node-header .mindo-markdown-content p {
+    margin: 0;
+    display: inline; /* Keep inline for simple text */
+}
+
 .mindo-node-header.has-content {
 }
 .mindo-node-header:not(.has-content) {
@@ -190,7 +203,8 @@
     border-bottom-right-radius: 0.75rem;
     flex-grow: 1;
     font-size: 0.875rem;
-    white-space: pre-wrap;
+    /* Use normal whitespace for markdown content (it handles its own spacing) */
+    white-space: normal; 
     line-height: 1.625;
     background-color: transparent;
     color: var(--text-normal);
@@ -206,6 +220,8 @@
     user-select: text;
     overflow-wrap: break-word;
     word-break: break-word;
+    /* Important for MathJax and Tables: standard whitespace handling */
+    white-space: normal;
 }
 .mindo-markdown-content p {
     margin-block-start: 0.5em;
