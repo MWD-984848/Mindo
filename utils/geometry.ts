@@ -52,10 +52,9 @@ export const getNearestHandle = (
 
 // --- Path Generation Strategies ---
 
-const getStepPath = (start: Position, end: Position, sourceHandle: HandlePosition, targetHandle: HandlePosition): string => {
-    // Offset to ensure the line leaves/enters the node cleanly
+// Helper to get critical points for step path to reuse in label calculation
+const getStepPoints = (start: Position, end: Position, sourceHandle: HandlePosition, targetHandle: HandlePosition): Position[] => {
     const offset = 20;
-    
     let pStart = { ...start };
     let pEnd = { ...end };
     
@@ -75,52 +74,49 @@ const getStepPath = (start: Position, end: Position, sourceHandle: HandlePositio
         case 'right': pEnd.x += offset; break;
     }
 
-    let d = `M ${start.x} ${start.y} L ${pStart.x} ${pStart.y}`;
-    
     const midX = (pStart.x + pEnd.x) / 2;
     const midY = (pStart.y + pEnd.y) / 2;
-    
     const startVertical = sourceHandle === 'top' || sourceHandle === 'bottom';
     const endVertical = targetHandle === 'top' || targetHandle === 'bottom';
 
+    const points: Position[] = [start, pStart];
+
     if (startVertical === endVertical) {
-        // Handles are parallel (e.g., Top to Bottom, Left to Right, or same side)
         if (startVertical) {
-            // Both vertical: Move vertically to midY, then horizontal, then vertical
-             // Check if we need to go "around" or if direct midY works
-             // For simple logic:
+             // Both vertical
              if ((sourceHandle === 'bottom' && pEnd.y > pStart.y) || (sourceHandle === 'top' && pEnd.y < pStart.y)) {
-                 // Direct path possible
-                 d += ` L ${pStart.x} ${midY} L ${pEnd.x} ${midY}`;
+                 points.push({ x: pStart.x, y: midY });
+                 points.push({ x: pEnd.x, y: midY });
              } else {
-                 // Zigzag might be needed, but simplified step keeps it consistent
-                 d += ` L ${pStart.x} ${midY} L ${pEnd.x} ${midY}`;
+                 points.push({ x: pStart.x, y: midY });
+                 points.push({ x: pEnd.x, y: midY });
              }
         } else {
             // Both horizontal
-            d += ` L ${midX} ${pStart.y} L ${midX} ${pEnd.y}`;
+            points.push({ x: midX, y: pStart.y });
+            points.push({ x: midX, y: pEnd.y });
         }
     } else {
-        // Handles are perpendicular (e.g., Right to Bottom)
         if (startVertical) {
-             // Start is vertical (Top/Bottom), Target is horizontal (Left/Right)
-             // We are at pStart (vertical offset). We want to reach pEnd (horizontal offset).
-             // Path: pStart -> (pStart.x, pEnd.y) -> pEnd ? 
-             // Or pStart -> (pEnd.x, pStart.y) -> pEnd ?
-             
-             // Try to find the corner that makes a 90 deg turn.
-             // Corner 1: (pStart.x, pEnd.y) -> Matches Target Y, Start X.
-             d += ` L ${pStart.x} ${pEnd.y}`;
+             // Start Vertical, End Horizontal
+             points.push({ x: pStart.x, y: pEnd.y });
         } else {
-             // Start is horizontal (Left/Right), Target is vertical (Top/Bottom)
-             // Corner: (pEnd.x, pStart.y)
-             d += ` L ${pEnd.x} ${pStart.y}`;
+             // Start Horizontal, End Vertical
+             points.push({ x: pEnd.x, y: pStart.y });
         }
     }
 
-    // Final connection to target
-    d += ` L ${pEnd.x} ${pEnd.y} L ${end.x} ${end.y}`;
+    points.push(pEnd);
+    points.push(end);
+    return points;
+};
 
+const getStepPath = (start: Position, end: Position, sourceHandle: HandlePosition, targetHandle: HandlePosition): string => {
+    const points = getStepPoints(start, end, sourceHandle, targetHandle);
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+        d += ` L ${points[i].x} ${points[i].y}`;
+    }
     return d;
 };
 
@@ -156,7 +152,6 @@ export const getEdgePath = (
 
   // Type: Bezier (Default)
   if (breakpoints.length > 0) {
-      // If breakpoints exist, fallback to polyline or simple quadratic if single point
       if (breakpoints.length === 1 && !manualControlPoint) {
          return `M ${start.x} ${start.y} Q ${breakpoints[0].x} ${breakpoints[0].y} ${end.x} ${end.y}`;
       }
@@ -200,12 +195,22 @@ export const getBezierMidpoint = (
     type: EdgeType = 'bezier',
     breakpoints: Position[] = []
 ): Position => {
-    // For Step/Straight, simple average is okay for label
+    // FIX: Calculate actual center of the Step path segments
     if (type === 'step') {
+        const points = getStepPoints(start, end, sourceHandle, targetHandle);
+        // Step paths usually have an even number of points (Start, pStart, corner(s), pEnd, End)
+        // We want the visual center.
+        if (points.length >= 2) {
+             // Find the middle segment
+             const totalPoints = points.length;
+             const midIndex = Math.floor((totalPoints - 1) / 2);
+             const p1 = points[midIndex];
+             const p2 = points[midIndex + 1];
+             return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+        }
         return { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
     }
     
-    // Correct logic for single control point (Quadratic Bezier)
     if (breakpoints.length === 1) {
         const t = 0.5;
         const cp = breakpoints[0];
